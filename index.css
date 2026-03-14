@@ -64,6 +64,14 @@
         rgba(32, 32, 32, 0.2) 0px 0px 0px 1px, rgba(0, 0, 0, 0.325) 0px 2px 3px -0.5px,
         rgba(255, 255, 255, 0.04) 0px 0.5px 0px inset;
     --metal-gradient: linear-gradient(180deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+
+    --glass-noise-background:
+        radial-gradient(circle at 60% -100%, #fffbe3cc 0%, #e3f2fd4d 75%),
+        conic-gradient(#ffffff66 0.25turn,
+            #fffde680 0.25turn 0.5turn,
+            #ffffff66 0.5turn 0.75turn,
+            #fffde680 0.75turn) top left / 4px 4px repeat,
+        #f6f8fa;
 }
 
 :root.theme-switching,
@@ -113,6 +121,14 @@
     --shadow-hover:
         rgba(32, 32, 32, 0.2) 0px 0px 0px 1px, rgba(0, 0, 0, 0.325) 0px 2px 3px -0.5px,
         rgba(255, 255, 255, 0.04) 0px 0.5px 0px inset;
+
+    --glass-noise-background:
+        radial-gradient(circle at 160% -100%, #8f7c6a8a 0%, #0001 55%),
+        conic-gradient(#ffffff14 0.25turn,
+            #ffffff20 0.25turn 0.5turn,
+            #ffffff14 0.5turn 0.75turn,
+            #ffffff20 0.75turn) top left / 4px 4px repeat,
+        #010405;
 }
 
 /* CORE RESET */
@@ -579,21 +595,27 @@ body:not(.unlocked) {
     align-items: center;
     padding: 0.9rem 2rem;
     border-bottom: 1px solid var(--border-color);
-    background: var(--metal-gradient);
+    background-color: var(--bg-primary);
     position: sticky;
     top: 0;
     z-index: 1000;
     margin-bottom: 0.5rem;
     box-shadow: var(--shadow-drop);
     overflow: hidden;
+    color: var(--text-muted);
+    text-shadow: 0 0 1px var(--text-muted);
 
     .header-brand {
         font-weight: 800;
         letter-spacing: 2px;
         text-transform: uppercase;
+        background-color: var(--bg-tertiary);
+        padding: 0.2rem 0.5rem;
+        box-shadow: var(--shadow-inset);
+        border: 1px solid var(--border-color);
 
         & span {
-            color: var(--highlight-color);
+            color: var(--warning-color);
         }
     }
 
@@ -604,7 +626,7 @@ body:not(.unlocked) {
         left: 0;
         width: 100%;
         height: 100%;
-        background: var(--bg-grid);
+        background: var(--bg-stripe-pattern);
         background-size: var(--bg-stripe-size);
         z-index: -1;
     }
@@ -618,6 +640,11 @@ body:not(.unlocked) {
         border: 1px solid var(--border-color);
         overflow: hidden;
         gap: 0.2rem;
+        outline: 1px solid transparent;
+        outline-width: 1px;
+        outline-offset: -1px;
+        outline-color: var(--border-color);
+        padding-bottom: 0.3rem;
     }
 }
 
@@ -1507,7 +1534,7 @@ body:not(.unlocked) {
 .btn {
     background: var(--bg-tertiary);
     color: var(--text-muted);
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--bg-color);
     padding: 0 0.8rem;
     min-height: var(--btn-height);
     height: var(--btn-height);
@@ -1517,7 +1544,6 @@ body:not(.unlocked) {
     font-family: var(--font-family);
     text-transform: uppercase;
     font-size: 0.65rem;
-    line-height: 1;
     letter-spacing: 1px;
     transition: var(--transition-speed);
     text-decoration: none;
@@ -1534,6 +1560,7 @@ body:not(.unlocked) {
 
     &:active {
         box-shadow: var(--shadow-inset);
+        color: var(--text-muted);
     }
 }
 
@@ -1562,6 +1589,7 @@ body:not(.unlocked) {
 .code {
     color: var(--warning-color);
     border: 1px solid var(--border-color);
+    background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, var(--grid-color) 10px, var(--grid-color) 11px);
     box-shadow: var(--shadow-drop);
 
     & i {
@@ -1569,6 +1597,9 @@ body:not(.unlocked) {
     }
 
     &:hover {
+        background-color: var(--bg);
+        background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, var(--hover-bg) 10px, var(--hover-bg) 11px);
+
         & i {
             color: var(--warning-color);
         }
@@ -1579,9 +1610,7 @@ body:not(.unlocked) {
         color: var(--text-muted);
     }
 
-    &:focus {
-        outline: none;
-    }
+
 }
 
 .btn-cmd {
@@ -1667,7 +1696,7 @@ footer {
     color: var(--text-muted);
     border-top: 1px solid var(--border-color);
     background: var(--bg-primary);
-    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+    box-shadow: var(--shadow-drop);
     z-index: 100;
 }
 
@@ -1695,6 +1724,10 @@ footer {
 .btn .btn-icon,
 .badge .btn-icon {
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 0.15rem;
 }
 
 .card-label,
@@ -1990,4 +2023,14 @@ body.unlocked .app-content {
     border-radius: 0.2rem;
     background-color: var(--bg-tertiary);
     overflow: hidden;
+}
+
+
+.footer-text {
+    color: var(--text-color);
+    font-weight: bold;
+    font-size: 0.7rem;
+    line-height: 1;
+    letter-spacing: 1px;
+    text-transform: uppercase;
 }

@@ -32,7 +32,7 @@
                 </div>
             </div>
         </div>
-        <div class="splash-brand">GIT_SCANNER::<span>S-PRO-V</span></div>
+        <div class="splash-brand">GIT_SCANNER<span>S-PRO-V</span></div>
         <div class="boot-panel">
             <ul class="boot-status-list" id="boot-status-list"></ul>
         </div>
@@ -59,7 +59,7 @@
 
     <div class="app-content" id="app-content">
         <header class="site-header">
-            <div class="header-brand">GIT_SCANNER::<span>S-PRO-V</span></div>
+            <div class="header-brand">GIT_SCANNER|<span>S-PRO-V</span></div>
             <div class="header-nav">
                 <button class="btn view-toggle" id="view-toggle"><i class="fas fa-list btn-icon" aria-hidden="true"></i>
                     VIEW: LIST</button>
@@ -193,7 +193,28 @@
         <script src="monaco-css.js"></script>
         <script src="https://cdn.jsdelivr.net/gh/s-pro-v/css_injector@main/css-editor-settings.js"></script>
         <footer>
-            SESSION: <span id="session-id">---</span> // LAYOUT_ENGINE: GRID_LIST_AUTO // V2.7
+            SESSION: <span class="footer-text" id="session-id">---</span> | LAYOUT_ENGINE: GRID_LIST_AUTO | V2.7
+            <!-- INSERT_YOUR_CODE -->
+            <span id="current-year">| Prawa autorskie </span>
+            <script>
+                // Auto-insert current year in the footer
+                (function () {
+                    var yearSpan = document.createElement('span');
+                    yearSpan.id = 'current-year';
+                    yearSpan.textContent = new Date().getFullYear();
+                    var footer = document.querySelector('footer');
+                    if (footer) {
+                        // Find the correct location to insert, immediately after 'V2.7'
+                        var separator = document.createTextNode(' © ');
+                        var yearSpan = document.createElement('span');
+                        yearSpan.id = 'current-year';
+                        yearSpan.style.color = 'var(--warning-color)';
+                        yearSpan.textContent = new Date().getFullYear();
+                        footer.appendChild(separator);
+                        footer.appendChild(yearSpan);
+                    }
+                })();
+            </script>
         </footer>
     </div>
 

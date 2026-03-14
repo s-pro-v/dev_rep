@@ -1,7 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Share+Tech+Mono&display=swap');
 @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css');
 
-
 /* Monaco: margines (numery linii) – węższy, dynamiczny */
 .monaco-editor .margin {
     background-color: var(--bg-secondary) !important;
@@ -111,7 +110,6 @@
     background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, var(--grid-color) 10px, var(--grid-color) 11px);
     display: flex;
     position: relative;
-    box-shadow: var(--shadow-drop);
 }
 
 .setting-item:hover {
@@ -119,8 +117,43 @@
     border-left-color: var(--warning-color);
 }
 
+.setting-item::after {
+    content: '';
+    position: absolute;
+    bottom: 0px;
+    right: 0;
+    width: 100%;
+    height: 1px;
+    background: var(--metal-gradient);
+    box-shadow: var(--shadow-drop);
+    z-index: 0;
+    transition: all 0.2s ease;
+    pointer-events: none;
+    overflow: hidden;
+}
 
+.setting-item::before {
+    content: '';
+    position: absolute;
+    top: 0px;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: var(--metal-gradient);
+    box-shadow: var(--shadow-drop);
+    z-index: 0;
+    transition: all 0.2s ease;
+    pointer-events: none;
+    overflow: hidden;
+}
 
+.setting-item:active::before {
+    box-shadow: var(--shadow-hover);
+}
+
+.setting-item:active::after {
+    box-shadow: var(--shadow-hover);
+}
 
 .setting-label {
     display: flex;
@@ -137,7 +170,6 @@
     font-family: var(--font-family);
     font-weight: 600;
     letter-spacing: 0.1em;
-    height: 30px;
 }
 
 .setting-label i {
@@ -183,14 +215,14 @@
     cursor: pointer;
     accent-color: var(--warning-color);
     border: 1px solid var(--border-color);
-    background-color: var(--bg-tertiary);
+    background-color: var(--card-bg);
     border-radius: 0;
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
     position: relative;
     transition: background-color var(--transition-speed),
-        border var(--transition-speed), box-shadow var(--transition-speed);
+        border-color var(--transition-speed), box-shadow var(--transition-speed);
     margin-left: auto;
     box-shadow: var(--shadow-inset);
     box-sizing: border-box;
@@ -199,7 +231,10 @@
 .setting-label input[type="checkbox"]:checked {
     background-color: var(--warning-color);
     box-shadow: var(--shadow-inset);
-    border: 1px solid var(--border-color);
+    outline-offset: -2px;
+    outline-width: 1px;
+    outline-style: solid;
+    outline-color: var(--bg-color);
 }
 
 .setting-label input[type="checkbox"]:checked::after {
@@ -212,7 +247,6 @@
     font-size: 0.7rem;
     font-weight: 700;
     line-height: 1;
-
 }
 
 .setting-item:hover input[type="checkbox"] {
@@ -371,409 +405,393 @@
     color: var(--text-color);
 }
 
-/* --- SETTINGS SIDEBAR: układ monolith (pionowe zakładki | treść), kolory projektu --- */
-#settings-overlay-wrap #settingsOverlay.active,
-#settings-overlay-wrap #settingsSidebar.active {
-    pointer-events: auto;
-}
-
+/* --- SETTINGS SIDEBAR (panel ustawień Monaco – overlay + sidebar) --- */
 .settings-overlay,
 .settings-sidebar-overlay {
     position: fixed;
-    inset: 0;
-    z-index: 9999;
-    background: rgba(0, 0, 0, 0.45);
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 999;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s ease;
+    background: rgba(0, 0, 0, 0.4);
 }
 
 .settings-overlay.active,
 .settings-sidebar-overlay.active {
     opacity: 1;
+    pointer-events: auto;
 }
 
-.settings-sidebar,
-#settingsSidebar.settings-sidebar {
+.settings-sidebar {
     position: fixed;
     top: 0;
     right: 0;
-    width: 520px;
-    max-width: 92vw;
+    width: 600px;
+    max-width: 90%;
     height: 100vh;
-    background: var(--bg-tertiary);
-    border-left: 1px solid var(--border-color);
+    background: var(--panel-bg);
+    border-left: 2px solid var(--border-color);
     box-shadow: var(--shadow-drop);
-    transform: translateX(100%);
-    transition: transform var(--transition-speed);
-    z-index: 10000;
+    z-index: 1000;
     display: flex;
     flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
     overflow: hidden;
 }
 
-#settingsSidebar.settings-sidebar.active,
 .settings-sidebar.active {
     transform: translateX(0);
 }
 
 .settings-sidebar-header {
-    padding: 0.5rem 1rem;
-    min-height: 3rem;
+    background-color: var(--bg-color);
+    border-bottom: 1px solid var(--border-color);
+    font-family: var(--font-family);
+    color: var(--warning-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid var(--border-color);
-    background: var(--bg-tertiary);
-    box-shadow: var(--shadow-drop);
     flex-shrink: 0;
+    padding: 15px 20px;
+    box-shadow: var(--shadow-drop);
+    position: relative;
+    z-index: 2;
+    background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, var(--grid-color) 10px, var(--grid-color) 11px);
+    height: 45px;
     font-size: 0.8rem;
 }
 
-.settings-sidebar-header .settings-sidebar-title {
-    margin: 0;
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+.settings-sidebar-title {
     font-weight: 700;
-    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-size: 0.9rem;
 }
 
 .settings-sidebar-header .close-settings {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--bg-color);
     color: var(--text-muted);
-    width: 2rem;
-    height: 2rem;
-    min-width: 2rem;
+    transition: all 0.2s ease;
+    width: 30px;
+    height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    transition: all var(--transition-speed);
     box-shadow: var(--shadow-drop);
+    padding: 0.2rem;
+
+}
+
+.settings-sidebar-header .close-settings i {
+    font-size: 0.9rem;
+    transition: color 0.2s ease;
 }
 
 .settings-sidebar-header .close-settings:hover {
+    color: var(--danger-color);
     background: var(--hover-bg);
-    color: var(--highlight-color);
 }
 
 .settings-sidebar-header .close-settings:active {
     box-shadow: var(--shadow-inset);
-    color: var(--text-muted);
 }
 
 .settings-sidebar-body {
     flex: 1;
-    display: flex;
-    overflow: hidden;
-    min-height: 0;
+    overflow-y: auto;
+    padding: 0;
+    position: relative;
+    background-image: radial-gradient(circle at 20% 30%, rgba(255, 115, 0, 0.08) 0%, transparent 40%), radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.03) 0%, transparent 40%);
 }
 
-/* Pionowy pasek zakładek – jak .file-explorer */
+.settings-sidebar-body::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: linear-gradient(to right, var(--grid-color) 1px, transparent 1px), linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+    background-size: 28px 28px;
+    background-position: center center;
+    z-index: -1;
+}
+
+
+
+
+.settings-sidebar-body::-webkit-scrollbar-track {
+    background: var(--bg-color);
+}
+
+.settings-sidebar-body::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border: 1px solid var(--bg-color);
+}
+
+.settings-sidebar-body::-webkit-scrollbar-thumb:hover {
+    background: var(--warning-color);
+}
+
 .settings-sidebar .settings-tabs {
-    width: 72px;
-    flex-shrink: 0;
-    background: var(--bg-tertiary);
-    border-right: 1px solid var(--border-color);
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding-top: 0.5rem;
-    background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, var(--grid-color) 10px, var(--grid-color) 11px);
+    flex-wrap: wrap;
+    gap: 0;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg-color);
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .settings-sidebar .settings-tab {
-    width: 100%;
-    min-height: 56px;
+    flex: 1;
+    min-width: 0;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    font-size: 0.65rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
+    gap: 0.4rem;
+    font-size: 0.7rem;
+    font-family: var(--font-family);
+    padding: 10px 8px;
+    background: var(--bg-color);
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-top: 2px solid transparent;
     color: var(--text-muted);
-    cursor: pointer;
     transition: all var(--transition-speed);
-    position: relative;
-    border-bottom: 1px solid var(--border-color);
-    border-left: 3px solid transparent;
-    box-shadow: var(--shadow-drop);
-    margin-bottom: 0.4rem;
-    padding: 0.4rem 0.25rem;
-    background: var(--bg-tertiary);
-    gap: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    cursor: pointer;
 }
 
-.settings-sidebar .settings-tab i,
-.settings-sidebar .settings-tab .settings-tab-icon {
-    font-size: 1rem;
+.settings-sidebar .settings-tab i {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    transition: color var(--transition-speed);
 }
 
 .settings-sidebar .settings-tab:hover {
-    color: var(--text-primary);
     background: var(--hover-bg);
+    color: var(--text-primary);
+
+}
+
+.settings-sidebar .settings-tab:hover i {
+    color: var(--warning-color);
 }
 
 .settings-sidebar .settings-tab.active {
-    color: var(--highlight-color);
     background: var(--bg-tertiary);
-    border-left-color: var(--highlight-color);
+    color: var(--warning-color);
+    border-top-color: var(--warning-color);
+    border-bottom-color: var(--warning-color);
+    z-index: 11;
+    position: relative;
+    box-shadow: none;
 }
 
-.settings-sidebar .settings-tab.active::after {
-    display: none;
+.settings-sidebar .settings-tab.active i {
+    color: var(--text-color);
 }
 
-/* Obszar treści zakładki */
+.settings-sidebar .settings-tab.active:hover {
+    background: var(--panel-bg);
+    color: var(--warning-color);
+}
+
 .settings-sidebar .settings-tab-content {
     display: none;
-    flex: 1;
-    min-width: 0;
-    padding: 1rem;
-    overflow-y: auto;
-    scroll-behavior: smooth;
+    padding: 1rem 1rem;
+    margin-top: 0;
+    border-top: 1px solid var(--border-color);
     background: var(--bg-tertiary);
+    box-shadow: var(--shadow-inset);
 }
 
 .settings-sidebar .settings-tab-content.active {
     display: block;
 }
 
-.settings-sidebar-body::-webkit-scrollbar,
-.settings-sidebar .settings-tab-content::-webkit-scrollbar {
-    width: 8px;
-}
-
-.settings-sidebar-body::-webkit-scrollbar-track,
-.settings-sidebar .settings-tab-content::-webkit-scrollbar-track {
-    background: var(--bg-color);
-}
-
-.settings-sidebar-body::-webkit-scrollbar-thumb,
-.settings-sidebar .settings-tab-content::-webkit-scrollbar-thumb {
-    background: var(--border-color);
-    border: 1px solid var(--bg-color);
-}
-
-.settings-sidebar-body::-webkit-scrollbar-thumb:hover,
-.settings-sidebar .settings-tab-content::-webkit-scrollbar-thumb:hover {
-    background: var(--highlight-color);
-}
-
-/* Wiersze ustawień – jak .explorer-item */
 .settings-sidebar .setting-item {
-    margin-bottom: 0.4rem;
-    padding: 1rem 0.8rem;
+    border-top: none;
     border-bottom: 1px solid var(--border-color);
     border-left: 3px solid transparent;
     box-shadow: var(--shadow-drop);
-    background: var(--bg-tertiary);
-    transition: border-left-color var(--transition-speed), padding-left var(--transition-speed), box-shadow var(--transition-speed);
-
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+    padding: 0.6rem 0.8rem;
+    cursor: pointer;
+    transition: border-left-color var(--transition-speed), background-color var(--transition-speed),
+        padding-left var(--transition-speed), box-shadow var(--transition-speed), color var(--transition-speed);
 }
 
 .settings-sidebar .setting-item:hover {
     border-left-color: var(--warning-color);
-    background: var(--hover-bg);
+    padding-left: 1rem;
 }
 
 .settings-sidebar .setting-item:active {
     box-shadow: var(--shadow-inset);
-    background: var(--bg);
-}
-
-.settings-sidebar .setting-item .setting-label {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 0.35rem;
-    cursor: pointer;
-}
-
-.settings-sidebar .setting-item .setting-icon {
+    background-color: var(--bg-tertiary);
     color: var(--text-muted);
-    margin-right: 0.5rem;
-    width: 1rem;
-    text-align: center;
 }
 
+.settings-sidebar .setting-item:hover .setting-label {
+    color: var(--warning-color);
+    transition: color var(--transition-speed);
+}
+
+.settings-sidebar .setting-item:last-child {
+    border-bottom: none;
+}
+
+/* Checkbox na cały wiersz – etykieta wypełnia padding .setting-item (ujemny margin), wysokość bez zmian */
 .settings-sidebar .setting-item:has(input[type="checkbox"]) .setting-label {
-    margin: 0;
-    padding: 0;
-    min-height: auto;
-}
-
-.settings-sidebar .setting-control {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.settings-sidebar .setting-value {
-    font-family: var(--font-family), monospace;
-    font-size: 0.75rem;
-    color: var(--highlight-color);
-    min-width: 3rem;
-    text-align: right;
-}
-
-.settings-sidebar input[type="range"]::-webkit-slider-runnable-track {
-    height: 4px;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-color);
-    box-shadow: var(--shadow-inset);
-}
-
-.settings-sidebar input[type="range"]::-webkit-slider-thumb {
-    height: 16px;
-    width: 20px;
-    background: var(--text-primary);
+    margin: -0.6rem -0.8rem;
+    padding: 0.6rem 0.8rem;
+    min-height: 2rem;
     cursor: pointer;
-    margin-top: -7px;
-    transition: background var(--transition-speed);
 }
 
-.settings-sidebar input[type="range"]:hover::-webkit-slider-thumb {
-    background: var(--hover-bg);
-}
-
-.settings-sidebar input[type="checkbox"] {
-    appearance: none;
-    width: 2.25rem;
-    height: 1.125rem;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-color);
-    box-shadow: var(--shadow-inset);
-    position: relative;
-    cursor: pointer;
-    transition: background var(--transition-speed), border-color var(--transition-speed);
-    flex-shrink: 0;
-}
-
-.settings-sidebar input[type="checkbox"]::before {
-    content: "";
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: calc(1.125rem - 4px);
-    height: calc(100% - 4px);
-    background: var(--text-muted);
-    transition: transform var(--transition-speed), background var(--transition-speed);
-}
-
-.settings-sidebar input[type="checkbox"]:checked {
-    background: var(--highlight-color);
-    border-color: var(--highlight-color);
-}
-
-.settings-sidebar input[type="checkbox"]:checked::before {
-    transform: translateX(1.125rem);
-    background: var(--bg-primary);
-}
-
-
-/* Ja-Select – jak inputy na stronie */
-.settings-sidebar .ja-select-wrap {
+/* --- CUSTOM SELECT (UPDATED) --- */
+.ja-select-wrap {
     position: relative;
     width: 100%;
 }
 
-.settings-sidebar .ja-select-btn {
-    width: 100%;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
+.ja-select-btn {
+    background-color: var(--card-bg);
     color: var(--text-primary);
-    padding: 0.5rem 0.8rem;
+    border: 1px solid var(--border-color);
+    padding: 0 0.8rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-family: var(--font-family);
+    text-transform: uppercase;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-family: var(--font-family), monospace;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all var(--transition-speed);
-    min-height: 2rem;
-    box-sizing: border-box;
+    border-radius: 0;
     box-shadow: var(--shadow-drop);
+    transition: all var(--transition-speed);
+    height: 36px;
+    box-sizing: border-box;
+    border-left: 3px solid transparent;
+    border-bottom: 1px solid var(--border-color);
+    width: 100%;
+    position: relative;
+    overflow: hidden;
 }
 
-.settings-sidebar .ja-select-btn:hover {
+.ja-select-btn:hover {
+    border-bottom-color: var(--warning-color);
+    color: var(--warning-color);
     background: var(--hover-bg);
 }
 
-.settings-sidebar .ja-select-btn.ja-open {
+.ja-select-btn:active {
     box-shadow: var(--shadow-inset);
 }
 
-.settings-sidebar .ja-select-btn .ja-select-arrow {
+.ja-select-btn .ja-select-arrow {
     font-size: 0.7rem;
     transition: transform var(--transition-speed);
+    font-style: normal;
     color: var(--text-muted);
 }
 
-.settings-sidebar .ja-select-btn.ja-open .ja-select-arrow {
-    transform: rotate(180deg);
-    color: var(--highlight-color);
+.ja-select-btn.ja-open {
+    border-color: var(--border-color);
+    border-bottom-color: transparent;
+    background: var(--bg-tertiary);
 }
 
-.settings-sidebar .ja-select-list {
+.ja-select-btn.ja-open .ja-select-arrow {
+    transform: rotate(180deg);
+    color: var(--warning-color);
+}
+
+.ja-select-list {
     position: absolute;
     top: 100%;
     left: 0;
-    width: 100%;
-    background: var(--bg-tertiary);
+    right: 0;
+    background-color: var(--panel-bg);
     border: 1px solid var(--border-color);
     border-top: none;
-    z-index: 50;
+    z-index: 1000;
     display: none;
-    max-height: 220px;
-    overflow-y: auto;
     box-shadow: var(--shadow-drop);
+    border-radius: 0;
+    max-height: 200px;
+    overflow-y: auto;
 }
 
-.settings-sidebar .ja-select-list.ja-visible {
+.ja-select-list.ja-visible {
     display: block;
 }
 
-.settings-sidebar .ja-select-item {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.75rem;
-    font-family: var(--font-family), monospace;
-    color: var(--text-muted);
+.ja-select-item {
+    padding: 0 0.5rem;
     cursor: pointer;
-    transition: all var(--transition-speed);
-    border-left: 3px solid transparent;
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-family: var(--font-family);
+    color: var(--text-primary);
     border-bottom: 1px solid var(--border-color);
+    border-left: 3px solid transparent;
     display: flex;
     align-items: center;
-    min-height: 2rem;
+    transition: all var(--transition-speed);
+    height: 32px;
     box-sizing: border-box;
-    background: var(--bg-tertiary);
+    text-transform: uppercase;
 }
 
-.settings-sidebar .ja-select-item:hover {
-    background: var(--hover-bg);
-    color: var(--highlight-color);
-    border-left-color: var(--highlight-color);
+.ja-select-item:last-child {
+    border-bottom: none;
 }
 
-.settings-sidebar .ja-select-item.ja-selected {
-    color: var(--highlight-color);
-    background: var(--bg-secondary);
-    border-left-color: var(--highlight-color);
-}
-
-.settings-sidebar .ja-select-item .ja-select-prefix {
+.ja-select-item .ja-select-prefix {
     margin-right: 0.5rem;
-    opacity: 0.6;
+    opacity: 0;
+    color: var(--warning-color);
+    transition: opacity var(--transition-speed);
+    font-weight: 700;
+    text-transform: capitalize;
 }
 
+.ja-select-item:hover {
+    background-color: var(--bg-color);
+    color: var(--warning-color);
+    border-left: 3px solid var(--warning-color);
+}
+
+.ja-select-item:hover .ja-select-prefix {
+    opacity: 1;
+}
+
+.ja-select-item.ja-selected {
+    background-color: var(--bg-tertiary);
+    color: var(--warning-color);
+    font-weight: 700;
+    border-left: 3px solid var(--warning-color);
+}
+
+.ja-select-item.ja-selected .ja-select-prefix {
+    opacity: 1;
+}
+
+/* Scrollbar dla listy (Webkit) */
 .ja-select-list::-webkit-scrollbar {
     width: 6px;
 }
@@ -784,8 +802,9 @@
 
 .ja-select-list::-webkit-scrollbar-thumb {
     background: var(--border-color);
+    border-radius: 0;
 }
 
 .ja-select-list::-webkit-scrollbar-thumb:hover {
-    background: var(--highlight-color);
+    background: var(--warning-color);
 }
