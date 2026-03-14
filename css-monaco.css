@@ -1,0 +1,791 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Share+Tech+Mono&display=swap');
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css');
+
+
+/* Monaco: margines (numery linii) – węższy, dynamiczny */
+.monaco-editor .margin {
+    background-color: var(--bg-secondary) !important;
+    max-width: 48px;
+}
+
+.monaco-editor .margin-view-overlays {
+    max-width: 40px;
+    min-width: 24px;
+}
+
+@media (max-width: 1000px) {
+    .workspace {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* --- PANEL USTAWIEN EDYTORA --- */
+.settings-panel {
+    border-top: 1px solid var(--border-color);
+    margin-top: auto;
+    background: var(--bg-color);
+    color: var(--text-color);
+}
+
+.settings-header {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-color);
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+    height: 30px;
+    padding: 0 15px;
+    background: var(--panel-bg);
+}
+
+.settings-header i {
+    color: var(--text-muted);
+    transition: all 0.2s ease;
+    vertical-align: middle;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.settings-header:hover i {
+    color: var(--text-color);
+}
+
+.settings-header:hover {
+    color: var(--highlight);
+    background: var(--bg-color);
+}
+
+.settings-toggle {
+    color: var(--highlight);
+    font-size: 0.7rem;
+    transition: transform 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+}
+
+.settings-toggle i {
+    font-size: 0.7rem;
+    vertical-align: middle;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.settings-content {
+    display: none;
+    max-height: calc(100vh - 300px);
+    overflow-y: auto;
+    font-size: 0.8rem;
+    background: var(--bg-color);
+    color: var(--text-color);
+}
+
+.settings-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.settings-content::-webkit-scrollbar-track {
+    background: var(--bg-color);
+}
+
+.settings-content::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+}
+
+.settings-content::-webkit-scrollbar-thumb:hover {
+    background: var(--highlight);
+}
+
+.setting-item {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    border-top: 1px solid var(--border-color);
+    transition: all 0.2s ease;
+    background-color: var(--bg-tertiary);
+    background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, var(--grid-color) 10px, var(--grid-color) 11px);
+    display: flex;
+    position: relative;
+    box-shadow: var(--shadow-drop);
+}
+
+.setting-item:hover {
+    background-color: var(--hover-bg);
+    border-left-color: var(--warning-color);
+}
+
+
+
+
+.setting-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    user-select: none;
+    gap: 8px;
+    transition: all 0.2s ease;
+    margin-left: 5px;
+    width: 100%;
+    font-family: var(--font-family);
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    height: 30px;
+}
+
+.setting-label i {
+    color: var(--warning-color);
+    transition: color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+}
+
+.setting-item:hover .setting-label i {
+    color: var(--text-color);
+}
+
+.setting-icon {
+    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    vertical-align: middle;
+    min-width: 18px;
+    opacity: 0.9;
+}
+
+.setting-icon.fas,
+.setting-icon.fab,
+.setting-icon.far {
+    width: 16px;
+    text-align: center;
+    margin-right: 2px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Checkbox w stylu ja-select / settings */
+.setting-label input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    cursor: pointer;
+    accent-color: var(--warning-color);
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-tertiary);
+    border-radius: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    position: relative;
+    transition: background-color var(--transition-speed),
+        border var(--transition-speed), box-shadow var(--transition-speed);
+    margin-left: auto;
+    box-shadow: var(--shadow-inset);
+    box-sizing: border-box;
+}
+
+.setting-label input[type="checkbox"]:checked {
+    background-color: var(--warning-color);
+    box-shadow: var(--shadow-inset);
+    border: 1px solid var(--border-color);
+}
+
+.setting-label input[type="checkbox"]:checked::after {
+    content: "✓";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--text-inverse);
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1;
+
+}
+
+.setting-item:hover input[type="checkbox"] {
+    background-color: var(--hover-bg);
+}
+
+.setting-label input[type="checkbox"]:checked:hover {
+    background-color: var(--warning-color);
+}
+
+.setting-item.setting-range {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.setting-item.setting-range .setting-label {
+    margin-bottom: 5px;
+}
+
+.setting-item.setting-range:hover .setting-label i {
+    color: var(--text-color);
+}
+
+.setting-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.setting-control input[type="range"] {
+    flex: 1;
+    height: 10px;
+    background: var(--bg-color);
+    outline: none;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    border-radius: 0 !important;
+    position: relative;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+}
+
+.setting-control input[type="range"]::-webkit-slider-runnable-track {
+    height: 10px;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 0 !important;
+}
+
+.setting-control input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 15px;
+    height: 15px;
+    background: var(--warning-color) !important;
+    cursor: pointer;
+    border: 2px solid var(--warning-color) !important;
+    border-radius: 0 !important;
+    margin-top: -4px;
+    position: relative;
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%) !important;
+    transform: none !important;
+    outline: none !important;
+    transition: all 0.2s ease;
+}
+
+.setting-control input[type="range"]::-webkit-slider-thumb:active {
+    background: var(--text-color) !important;
+    border-color: var(--text-color) !important;
+    transform: scale(1.15) !important;
+}
+
+.setting-control input[type="range"]:focus::-webkit-slider-thumb {
+    background: var(--text-color) !important;
+    border-color: var(--text-color) !important;
+}
+
+.setting-control input[type="range"]::-webkit-slider-thumb:hover {
+    background: var(--text-color) !important;
+    border-color: var(--text-color) !important;
+}
+
+.setting-control input[type="range"]::-moz-range-track {
+    height: 10px;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 0;
+}
+
+.setting-control input[type="range"]::-moz-range-thumb {
+    width: 15px;
+    height: 15px;
+    background: var(--warning-color) !important;
+    cursor: pointer;
+    border: 2px solid var(--warning-color) !important;
+    border-radius: 0 !important;
+    -moz-appearance: none !important;
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%) !important;
+    outline: none !important;
+    transition: all 0.2s ease;
+}
+
+.setting-control input[type="range"]::-moz-range-thumb:hover {
+    background: var(--text-color) !important;
+    border-color: var(--text-color) !important;
+}
+
+.setting-control input[type="range"]::-moz-range-thumb:active {
+    background: var(--text-color) !important;
+    border-color: var(--text-color) !important;
+    transform: scale(1.15);
+}
+
+.setting-value {
+    color: var(--warning-color);
+    font-weight: bold;
+    min-width: 45px;
+    text-align: right;
+    font-size: 0.75rem;
+}
+
+.setting-item.setting-select {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.setting-select-input {
+    width: 100%;
+    padding: 5px 8px;
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    font-family: "JetBrains Mono", "Share Tech Mono", monospace;
+    font-size: 0.75rem;
+    cursor: pointer;
+    border-radius: 0;
+    outline: none;
+    text-transform: uppercase;
+    transition: all 0.2s ease;
+}
+
+.setting-select-input:hover {
+    border-bottom-color: var(--warning-color);
+    background: var(--bg-color);
+}
+
+.setting-select-input:focus {
+    border-bottom-color: var(--warning-color);
+    background: var(--bg-color);
+}
+
+.setting-select-input option {
+    background: var(--panel-bg);
+    color: var(--text-color);
+}
+
+/* --- SETTINGS SIDEBAR: układ monolith (pionowe zakładki | treść), kolory projektu --- */
+#settings-overlay-wrap #settingsOverlay.active,
+#settings-overlay-wrap #settingsSidebar.active {
+    pointer-events: auto;
+}
+
+.settings-overlay,
+.settings-sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.settings-overlay.active,
+.settings-sidebar-overlay.active {
+    opacity: 1;
+}
+
+.settings-sidebar,
+#settingsSidebar.settings-sidebar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 520px;
+    max-width: 92vw;
+    height: 100vh;
+    background: var(--bg-tertiary);
+    border-left: 1px solid var(--border-color);
+    box-shadow: var(--shadow-drop);
+    transform: translateX(100%);
+    transition: transform var(--transition-speed);
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#settingsSidebar.settings-sidebar.active,
+.settings-sidebar.active {
+    transform: translateX(0);
+}
+
+.settings-sidebar-header {
+    padding: 0.5rem 1rem;
+    min-height: 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+    box-shadow: var(--shadow-drop);
+    flex-shrink: 0;
+    font-size: 0.8rem;
+}
+
+.settings-sidebar-header .settings-sidebar-title {
+    margin: 0;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+
+.settings-sidebar-header .close-settings {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    width: 2rem;
+    height: 2rem;
+    min-width: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--transition-speed);
+    box-shadow: var(--shadow-drop);
+}
+
+.settings-sidebar-header .close-settings:hover {
+    background: var(--hover-bg);
+    color: var(--highlight-color);
+}
+
+.settings-sidebar-header .close-settings:active {
+    box-shadow: var(--shadow-inset);
+    color: var(--text-muted);
+}
+
+.settings-sidebar-body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* Pionowy pasek zakładek – jak .file-explorer */
+.settings-sidebar .settings-tabs {
+    width: 72px;
+    flex-shrink: 0;
+    background: var(--bg-tertiary);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 0.5rem;
+    background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, var(--grid-color) 10px, var(--grid-color) 11px);
+}
+
+.settings-sidebar .settings-tab {
+    width: 100%;
+    min-height: 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all var(--transition-speed);
+    position: relative;
+    border-bottom: 1px solid var(--border-color);
+    border-left: 3px solid transparent;
+    box-shadow: var(--shadow-drop);
+    margin-bottom: 0.4rem;
+    padding: 0.4rem 0.25rem;
+    background: var(--bg-tertiary);
+    gap: 4px;
+}
+
+.settings-sidebar .settings-tab i,
+.settings-sidebar .settings-tab .settings-tab-icon {
+    font-size: 1rem;
+}
+
+.settings-sidebar .settings-tab:hover {
+    color: var(--text-primary);
+    background: var(--hover-bg);
+}
+
+.settings-sidebar .settings-tab.active {
+    color: var(--highlight-color);
+    background: var(--bg-tertiary);
+    border-left-color: var(--highlight-color);
+}
+
+.settings-sidebar .settings-tab.active::after {
+    display: none;
+}
+
+/* Obszar treści zakładki */
+.settings-sidebar .settings-tab-content {
+    display: none;
+    flex: 1;
+    min-width: 0;
+    padding: 1rem;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    background: var(--bg-tertiary);
+}
+
+.settings-sidebar .settings-tab-content.active {
+    display: block;
+}
+
+.settings-sidebar-body::-webkit-scrollbar,
+.settings-sidebar .settings-tab-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.settings-sidebar-body::-webkit-scrollbar-track,
+.settings-sidebar .settings-tab-content::-webkit-scrollbar-track {
+    background: var(--bg-color);
+}
+
+.settings-sidebar-body::-webkit-scrollbar-thumb,
+.settings-sidebar .settings-tab-content::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border: 1px solid var(--bg-color);
+}
+
+.settings-sidebar-body::-webkit-scrollbar-thumb:hover,
+.settings-sidebar .settings-tab-content::-webkit-scrollbar-thumb:hover {
+    background: var(--highlight-color);
+}
+
+/* Wiersze ustawień – jak .explorer-item */
+.settings-sidebar .setting-item {
+    margin-bottom: 0.4rem;
+    padding: 1rem 0.8rem;
+    border-bottom: 1px solid var(--border-color);
+    border-left: 3px solid transparent;
+    box-shadow: var(--shadow-drop);
+    background: var(--bg-tertiary);
+    transition: border-left-color var(--transition-speed), padding-left var(--transition-speed), box-shadow var(--transition-speed);
+
+}
+
+.settings-sidebar .setting-item:hover {
+    border-left-color: var(--warning-color);
+    background: var(--hover-bg);
+}
+
+.settings-sidebar .setting-item:active {
+    box-shadow: var(--shadow-inset);
+    background: var(--bg);
+}
+
+.settings-sidebar .setting-item .setting-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.35rem;
+    cursor: pointer;
+}
+
+.settings-sidebar .setting-item .setting-icon {
+    color: var(--text-muted);
+    margin-right: 0.5rem;
+    width: 1rem;
+    text-align: center;
+}
+
+.settings-sidebar .setting-item:has(input[type="checkbox"]) .setting-label {
+    margin: 0;
+    padding: 0;
+    min-height: auto;
+}
+
+.settings-sidebar .setting-control {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.settings-sidebar .setting-value {
+    font-family: var(--font-family), monospace;
+    font-size: 0.75rem;
+    color: var(--highlight-color);
+    min-width: 3rem;
+    text-align: right;
+}
+
+.settings-sidebar input[type="range"]::-webkit-slider-runnable-track {
+    height: 4px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-inset);
+}
+
+.settings-sidebar input[type="range"]::-webkit-slider-thumb {
+    height: 16px;
+    width: 20px;
+    background: var(--text-primary);
+    cursor: pointer;
+    margin-top: -7px;
+    transition: background var(--transition-speed);
+}
+
+.settings-sidebar input[type="range"]:hover::-webkit-slider-thumb {
+    background: var(--hover-bg);
+}
+
+.settings-sidebar input[type="checkbox"] {
+    appearance: none;
+    width: 2.25rem;
+    height: 1.125rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-inset);
+    position: relative;
+    cursor: pointer;
+    transition: background var(--transition-speed), border-color var(--transition-speed);
+    flex-shrink: 0;
+}
+
+.settings-sidebar input[type="checkbox"]::before {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: calc(1.125rem - 4px);
+    height: calc(100% - 4px);
+    background: var(--text-muted);
+    transition: transform var(--transition-speed), background var(--transition-speed);
+}
+
+.settings-sidebar input[type="checkbox"]:checked {
+    background: var(--highlight-color);
+    border-color: var(--highlight-color);
+}
+
+.settings-sidebar input[type="checkbox"]:checked::before {
+    transform: translateX(1.125rem);
+    background: var(--bg-primary);
+}
+
+
+/* Ja-Select – jak inputy na stronie */
+.settings-sidebar .ja-select-wrap {
+    position: relative;
+    width: 100%;
+}
+
+.settings-sidebar .ja-select-btn {
+    width: 100%;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 0.5rem 0.8rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--font-family), monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all var(--transition-speed);
+    min-height: 2rem;
+    box-sizing: border-box;
+    box-shadow: var(--shadow-drop);
+}
+
+.settings-sidebar .ja-select-btn:hover {
+    background: var(--hover-bg);
+}
+
+.settings-sidebar .ja-select-btn.ja-open {
+    box-shadow: var(--shadow-inset);
+}
+
+.settings-sidebar .ja-select-btn .ja-select-arrow {
+    font-size: 0.7rem;
+    transition: transform var(--transition-speed);
+    color: var(--text-muted);
+}
+
+.settings-sidebar .ja-select-btn.ja-open .ja-select-arrow {
+    transform: rotate(180deg);
+    color: var(--highlight-color);
+}
+
+.settings-sidebar .ja-select-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-top: none;
+    z-index: 50;
+    display: none;
+    max-height: 220px;
+    overflow-y: auto;
+    box-shadow: var(--shadow-drop);
+}
+
+.settings-sidebar .ja-select-list.ja-visible {
+    display: block;
+}
+
+.settings-sidebar .ja-select-item {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.75rem;
+    font-family: var(--font-family), monospace;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all var(--transition-speed);
+    border-left: 3px solid transparent;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    min-height: 2rem;
+    box-sizing: border-box;
+    background: var(--bg-tertiary);
+}
+
+.settings-sidebar .ja-select-item:hover {
+    background: var(--hover-bg);
+    color: var(--highlight-color);
+    border-left-color: var(--highlight-color);
+}
+
+.settings-sidebar .ja-select-item.ja-selected {
+    color: var(--highlight-color);
+    background: var(--bg-secondary);
+    border-left-color: var(--highlight-color);
+}
+
+.settings-sidebar .ja-select-item .ja-select-prefix {
+    margin-right: 0.5rem;
+    opacity: 0.6;
+}
+
+.ja-select-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.ja-select-list::-webkit-scrollbar-track {
+    background: var(--bg-tertiary);
+}
+
+.ja-select-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+}
+
+.ja-select-list::-webkit-scrollbar-thumb:hover {
+    background: var(--highlight-color);
+}
