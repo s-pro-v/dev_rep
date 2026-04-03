@@ -492,17 +492,31 @@ function encodePath(p) {
     return p.split('/').map(encodeURIComponent).join('/');
 }
 
+/** Lista plików w eksploratorze: `#file-tree > .conter` (tworzona przy braku). */
+function getFileTreeListEl() {
+    const root = document.getElementById('file-tree');
+    if (!root) return null;
+    let list = root.querySelector(':scope > .conter');
+    if (!list) {
+        list = document.createElement('div');
+        list.className = 'conter';
+        root.appendChild(list);
+    }
+    return list;
+}
+
 async function fetchFiles(path) {
-    const tree = document.getElementById('file-tree');
-    tree.innerHTML = '<div class="explorer-item">FETCHING...</div>';
+    const list = getFileTreeListEl();
+    if (!list) return;
+    list.innerHTML = '<div class="explorer-item">FETCHING...</div>';
     try {
         const url = `https://api.github.com/repos/${USERNAME}/${currentRepo}/contents/${encodePath(path)}`;
         const res = await fetch(url, { headers: getHeaders() });
         const data = await res.json();
-        tree.innerHTML = '';
+        list.innerHTML = '';
         if (!res.ok) {
             const msg = (data && data.message) ? data.message : `HTTP ${res.status}`;
-            tree.innerHTML = `<div class="explorer-item" style="color:var(--danger-color)">${msg}</div>`;
+            list.innerHTML = `<div class="explorer-item" style="color:var(--danger-color)">${msg}</div>`;
             return;
         }
         const files = Array.isArray(data) ? data : [data];
@@ -510,7 +524,7 @@ async function fetchFiles(path) {
             const b = document.createElement('div'); b.className = 'explorer-item folder';
             b.innerHTML = '<i class="fas fa-arrow-left btn-icon icon-muted" aria-hidden="true"></i> .. [BACK]';
             b.onclick = () => fetchFiles(path.split('/').slice(0, -1).join('/'));
-            tree.appendChild(b);
+            list.appendChild(b);
         }
         files.sort((a, b) => (b.type === 'dir') - (a.type === 'dir')).forEach(f => {
             const isDir = f.type === 'dir';
@@ -528,14 +542,14 @@ async function fetchFiles(path) {
                 if (isDir) fetchFiles(f.path);
                 else {
                     loadContent(f);
-                    tree.querySelectorAll('.explorer-item').forEach(i => i.classList.remove('active'));
+                    list.querySelectorAll('.explorer-item').forEach(i => i.classList.remove('active'));
                     el.classList.add('active');
                 }
             };
-            tree.appendChild(el);
+            list.appendChild(el);
         });
     } catch (e) {
-        tree.innerHTML = `<div class="explorer-item" style="color:var(--danger-color)">${e.message || 'ERR'}</div>`;
+        list.innerHTML = `<div class="explorer-item" style="color:var(--danger-color)">${e.message || 'ERR'}</div>`;
     }
 }
 
@@ -557,6 +571,7 @@ async function loadContent(file) {
     currentOpenFilePath = file.path;
     setCdnUrl(file.path);
     const tree = document.getElementById('file-tree');
+    if (!tree) return;
     tree.querySelectorAll('.explorer-item').forEach(i => i.classList.remove('active'));
     const safePath = (file.path || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
     const activeEl = tree.querySelector(`.explorer-item[data-path="${safePath}"]`);
