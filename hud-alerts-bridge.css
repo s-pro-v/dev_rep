@@ -1,0 +1,75 @@
+/* Pomost: Industrial HUD alert.css + zmienne z index.css + overlay modala */
+
+:root {
+    --panel-bg: var(--bg-primary);
+    --background-v: repeating-linear-gradient(45deg,
+            transparent,
+            transparent 10px,
+            var(--grid-color) 10px,
+            var(--grid-color) 11px);
+}
+
+/* Tło pod modalem (alert.css nie definiuje overlay – w index.html jest osobny blok) */
+#hud-confirm-overlay.git-scanner-hud-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2005;
+    background: color-mix(in srgb, var(--bg-color) 35%, rgba(0, 0, 0, 0.55));
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+#hud-confirm-overlay.git-scanner-hud-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Modal nad Monaco (2000); domyślne 2011 w alert.css zostaje, tu tylko pewność */
+#hud-confirm-modal.system-alert-modal {
+    z-index: 2011;
+}
+
+/* Toasty: jedna animacja wejścia + .closing z alert.css (bez auto-wyjścia w 4.7s) */
+.git-scanner-hud-toasts .toast {
+    animation: git-scanner-hud-toast-in 0.3s ease-out forwards;
+}
+
+.git-scanner-hud-toasts .toast.closing {
+    animation: git-scanner-hud-toast-out 0.3s ease-in forwards;
+}
+
+@keyframes git-scanner-hud-toast-in {
+    from {
+        opacity: 0;
+        transform: scale(0.94) translateY(14px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes git-scanner-hud-toast-out {
+    to {
+        opacity: 0;
+        transform: scale(0.94) translateX(16px);
+    }
+}
+
+/* Dostosowanie do footera i wąskich ekranów */
+#hud-toast-container.git-scanner-hud-toasts {
+    bottom: 3.25rem;
+    right: 12px;
+    z-index: 10050;
+}
+
+.git-scanner-hud-toasts .toast {
+    width: min(420px, calc(100vw - 24px));
+    max-width: min(500px, calc(100vw - 24px));
+}
+
+.git-scanner-hud-toasts .toast-message {
+    user-select: text;
+}

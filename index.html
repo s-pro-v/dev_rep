@@ -18,6 +18,8 @@
 
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="css-monaco.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/s-pro-v/Industrial_HUD_Framework@main/css/alert.css">
+    <link rel="stylesheet" href="hud-alerts-bridge.css">
 </head>
 
 <body>
@@ -33,27 +35,64 @@
             </div>
         </div>
         <div class="splash-brand">GIT_SCANNER<span>S-PRO-V</span></div>
-        <div class="boot-panel">
-            <ul class="boot-status-list" id="boot-status-list"></ul>
-        </div>
-        <div class="progress-wrap">
-            <div class="progress-bar">
-                <div class="progress-fill" id="progress-fill"></div>
+        <div class="splash-panels">
+            <div class="splash-terminal">
+                <section class="splash-sec splash-sec--boot" aria-label="Boot console">
+                    <header class="splash-sec-header splash-hazard">
+                        <i class="fas fa-terminal splash-sec-icon splash-sec-icon--boot" aria-hidden="true"></i>
+                        <h2 class="splash-sec-title">BOOT_CONSOLE</h2>
+                    </header>
+                    <div class="splash-sec-body splash-sec-body--boot">
+                        <ul class="boot-status-list" id="boot-status-list"></ul>
+                        <div class="splash-progress-block">
+                            <div class="progress-bar splash-progress-track">
+                                <div class="progress-fill" id="progress-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="splash-continue" id="splash-continue" aria-hidden="true">
+                    <section class="splash-sec splash-sec--login" aria-label="Secure access">
+                        <header class="splash-sec-header splash-hazard">
+                            <i class="fas fa-lock splash-sec-icon splash-sec-icon--lock" aria-hidden="true"></i>
+                            <h2 class="splash-sec-title">SECURE ACCESS</h2>
+                        </header>
+                        <div class="splash-sec-body splash-sec-body--login">
+                            <div class="splash-login-body">
+                                <p class="splash-continue-text">System ready. Enter password to continue.</p>
+                                <p class="splash-logout-info" id="splash-logout-info" aria-live="polite"></p>
+                                <p class="splash-auth-info" id="splash-auth-info"></p>
+                                <div class="splash-password-wrap">
+                                    <label for="splash-password" class="splash-password-label">ACCESS_KEY</label>
+                                    <input type="password" id="splash-password" class="splash-password-input"
+                                        placeholder="••••••••" autocomplete="off">
+                                </div>
+                                <p class="splash-password-error" id="splash-password-error" aria-live="polite"></p>
+                            </div>
+                            <div class="splash-login-actions">
+                                <button type="button" class="btn splash-unlock-btn splash-continue-btn"
+                                    id="splash-continue-btn"><i class="fas fa-lock-open btn-icon"
+                                        aria-hidden="true"></i>
+                                    UNLOCK</button>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <section class="splash-sec splash-sec--log" aria-label="Boot log">
+                    <div class="splash-log-outer">
+                        <div class="boot-log" id="boot-log" role="log" aria-live="polite" aria-label="Boot log"></div>
+                    </div>
+                </section>
+
+                <footer class="splash-terminal-foot" aria-hidden="true">
+                    <span style="font-size:0.96em;">Witaj w aplikacji <strong
+                            style="color:var(--highlight-color);">GIT_SCANNER</strong> by <strong></strong> <strong
+                            style="color:var(--text-color);">S-PRO-V!</strong> &mdash; Narzędzie
+                        non-profit do analizy repozytoriów, wymagane hasło dostępu.</span>
+                </footer>
             </div>
-        </div>
-        <div class="boot-log" id="boot-log"></div>
-        <div class="splash-continue" id="splash-continue">
-            <p class="splash-continue-text">System ready. Enter password to continue.</p>
-            <p class="splash-logout-info" id="splash-logout-info" aria-live="polite"></p>
-            <p class="splash-auth-info" id="splash-auth-info"></p>
-            <div class="splash-password-wrap">
-                <label for="splash-password" class="splash-password-label">Password</label>
-                <input type="password" id="splash-password" class="splash-password-input" placeholder="••••••••"
-                    autocomplete="off">
-                <p class="splash-password-error" id="splash-password-error" aria-live="polite"></p>
-            </div>
-            <button type="button" class="btn splash-continue-btn" id="splash-continue-btn"><i
-                    class="fas fa-lock-open btn-icon" aria-hidden="true"></i> UNLOCK</button>
         </div>
     </div>
 
@@ -63,10 +102,17 @@
             <div class="header-nav">
                 <button class="btn view-toggle" id="view-toggle"><i class="fas fa-list btn-icon" aria-hidden="true"></i>
                     VIEW: LIST</button>
+                <button type="button" class="btn repo-refresh" id="repo-refresh-btn"
+                    title="Odśwież listę repozytoriów (GitHub API)"><i class="fas fa-arrows-rotate btn-icon"
+                        aria-hidden="true"></i> ODŚWIEŻ</button>
                 <button class="btn key-toggle" id="key-toggle"><i class="fas fa-key btn-icon" aria-hidden="true"></i>
                     AUTH_KEY</button>
                 <button class="btn theme-toggle" id="theme-toggle"><i class="fas fa-circle-half-stroke btn-icon"
                         aria-hidden="true"></i> THEME</button>
+
+                <span class="badge header-rate" title="Limit żądań GitHub API (pozostało / limit)"><i
+                        class="fas fa-gauge-high btn-icon" aria-hidden="true"></i> API <span
+                        id="rate-limit">0/0</span></span>
 
                 <span id="auth-status" class="badge auth-status"><i class="far fa-circle btn-icon"
                         aria-hidden="true"></i>
@@ -112,16 +158,52 @@
                             class="fas fa-circle-check card-icon" aria-hidden="true"></i> Active State</span><span
                         class="card-heading" id="stat-active" style="color:var(--success-color)">0</span></div>
                 <div class="card card--pages card--filter" id="card-filter-pages" data-filter="pages" role="button"
-                    tabindex="0" title="Tylko z GitHub Pages"><span class="card-label"><i class="fas fa-globe card-icon"
-                            aria-hidden="true"></i> Pages Live</span><span class="card-heading" id="stat-pages"
-                        style="color:var(--info-color)">0</span></div>
-                <div class="card card--rate"><span class="card-label"><i class="fas fa-gauge-high card-icon"
-                            aria-hidden="true"></i> Rate Limit</span><span class="card-heading"
-                        id="rate-limit">0/0</span>
-                </div>
+                    tabindex="0" title="Tylko repozytoria z włączonym GitHub Pages"><span class="card-label"><i
+                            class="fas fa-globe card-icon" aria-hidden="true"></i> GitHub Pages</span><span
+                        class="card-heading" id="stat-pages" style="color:var(--info-color)">0</span></div>
+                <div class="card card--live card--filter" id="card-filter-live" data-filter="live" role="button"
+                    tabindex="0" title="Ta sama lista co Pages + podgląd strony w oknie obok"><span
+                        class="card-label"><i class="fas fa-eye card-icon" aria-hidden="true"></i> Podgląd
+                        LIVE</span><span class="card-heading" id="stat-live"
+                        style="color:var(--highlight-color)">0</span></div>
             </section>
             <div class="bg-line"> </div>
-            <main class="repo-list-container" id="repo-list"></main>
+            <div class="repo-main-stage" id="repo-main-stage">
+                <main class="repo-list-container" id="repo-list"></main>
+                <aside class="repo-live-panel" id="repo-live-panel" hidden aria-label="Podgląd GitHub Pages">
+                    <header class="repo-live-toolbar">
+                        <div class="repo-live-toolbar-head">
+                            <span class="repo-live-toolbar-title"><i class="fas fa-globe btn-icon"
+                                    aria-hidden="true"></i>
+                                GitHub Pages — podgląd</span>
+                            <button type="button" class=" repo-live-toolbar-toggle sm" id="repo-live-toolbar-toggle"
+                                aria-expanded="true" aria-controls="repo-live-toolbar-body"
+                                title="Zwiń / rozwiń pasek podglądu">
+                                <i class="fas fa-chevron-up btn-icon" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                        <div class="repo-live-toolbar-body" id="repo-live-toolbar-body">
+                            <input type="text" class="repo-live-url" id="repo-live-url" readonly
+                                placeholder="Wybierz repozytorium na liście po lewej…">
+                            <div class="repo-live-toolbar-btns">
+                                <button type="button" class="btn repo-live-reload" id="repo-live-reload"
+                                    title="Przeładuj podgląd w oknie"><i class="fas fa-rotate-right btn-icon"
+                                        aria-hidden="true"></i> RELOAD</button>
+                                <a class="btn btn-io repo-live-open" id="repo-live-open" href="#" target="_blank"
+                                    rel="noopener noreferrer" title="Otwórz w nowej karcie"><i
+                                        class="fas fa-up-right-from-square btn-icon" aria-hidden="true"></i> NOWA
+                                    KARTA</a>
+                            </div>
+                        </div>
+                    </header>
+                    <div class="repo-live-frame-wrap">
+                        <iframe id="repo-live-iframe" class="repo-live-iframe" title="Podgląd strony GitHub Pages"
+                            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
+                        <div class="repo-live-empty" id="repo-live-empty">Kliknij wiersz na liście po lewej. Część stron
+                            blokuje podgląd w ramce (X-Frame-Options) — użyj „Nowa karta”.</div>
+                    </div>
+                </aside>
+            </div>
         </div>
 
         <!-- MONACO MODAL -->
@@ -197,31 +279,35 @@
         <script src="monaco-css.js"></script>
         <script src="https://cdn.jsdelivr.net/gh/s-pro-v/css_add@refs/heads/main/set.js"></script>
         <footer>
-            SESSION: <span class="footer-text" id="session-id">---</span> | LAYOUT_ENGINE: GRID_LIST_AUTO | V2.7
-            <!-- INSERT_YOUR_CODE -->
-            <span id="current-year">| Prawa autorskie </span>
-            <script>
-                // Auto-insert current year in the footer
-                (function () {
-                    var yearSpan = document.createElement('span');
-                    yearSpan.id = 'current-year';
-                    yearSpan.textContent = new Date().getFullYear();
-                    var footer = document.querySelector('footer');
-                    if (footer) {
-                        // Find the correct location to insert, immediately after 'V2.7'
-                        var separator = document.createTextNode(' © ');
-                        var yearSpan = document.createElement('span');
-                        yearSpan.id = 'current-year';
-                        yearSpan.style.color = 'var(--warning-color)';
-                        yearSpan.textContent = new Date().getFullYear();
-                        footer.appendChild(separator);
-                        footer.appendChild(yearSpan);
-                    }
-                })();
-            </script>
+            SESSION: <span class="footer-text" id="session-id">---</span> | LAYOUT_ENGINE: GRID_LIST_AUTO | V2.7 |
+            © <time class="footer-text" id="footer-year" datetime="">—</time>
+            <span class="footer-muted"> Prawa autorskie</span>
         </footer>
     </div>
 
+    <div class="git-scanner-hud-overlay" id="hud-confirm-overlay" aria-hidden="true"></div>
+    <div class="system-alert-modal" id="hud-confirm-modal" role="dialog" aria-modal="true"
+        aria-labelledby="hud-confirm-title" aria-describedby="hud-confirm-message" data-alert-type="info">
+        <div class="modal-content">
+            <div class="system-alert-header">
+                <span class="system-alert-title" id="hud-confirm-title">Confirm</span>
+                <button type="button" class="close-btn" id="hud-confirm-close" aria-label="Zamknij"><i
+                        class="fas fa-times" aria-hidden="true"></i></button>
+            </div>
+            <div class="system-alert-body">
+                <div class="system-alert-main-title" id="hud-confirm-main-title">Title</div>
+                <p class="confirm-message" id="hud-confirm-message">Message</p>
+            </div>
+            <div class="system-alert-footer">
+                <button type="button" class="cancel-btn" id="hud-confirm-cancel">Cancel</button>
+                <button type="button" class="system-alert-btn system-alert-btn-primary"
+                    id="hud-confirm-ok">Confirm</button>
+            </div>
+        </div>
+    </div>
+    <div id="hud-toast-container" class="toast-container git-scanner-hud-toasts" aria-live="polite"></div>
+
+    <script src="hud-notify.js"></script>
     <script src="index.js"></script>
 
 

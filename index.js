@@ -7,16 +7,34 @@ const UNLOCK_STORAGE_KEY = 'git_scanner_unlocked'; // sessionStorage – do zamk
 let editor, currentRepo = '', currentOpenFilePath = '', currentTheme = 'dark', githubToken = '', currentView = (localStorage.getItem(VIEW_STORAGE_KEY) || 'list');
 let allRepos = [], repoFilter = 'all';
 
+function notifyToast(level, title, message, durationMs) {
+    if (typeof window.HudNotify !== 'undefined' && typeof window.HudNotify.toast === 'function') {
+        window.HudNotify.toast(level, title, message, durationMs);
+    }
+}
+
+function utf8ToBase64(str) {
+    const bytes = new TextEncoder().encode(str);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+}
+function base64ToUtf8(b64) {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i) & 0xff;
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+}
 function obfuscate(str) {
     let out = '';
     for (let i = 0; i < str.length; i++) {
         out += String.fromCharCode(str.charCodeAt(i) ^ OBFUSCATE_KEY.charCodeAt(i % OBFUSCATE_KEY.length));
     }
-    return btoa(unescape(encodeURIComponent(out)));
+    return utf8ToBase64(out);
 }
 function deobfuscate(str) {
     try {
-        const raw = decodeURIComponent(escape(atob(str)));
+        const raw = base64ToUtf8(str);
         let out = '';
         for (let i = 0; i < raw.length; i++) {
             out += String.fromCharCode(raw.charCodeAt(i) ^ OBFUSCATE_KEY.charCodeAt(i % OBFUSCATE_KEY.length));
@@ -72,9 +90,20 @@ window.updateSetting = function (key, value) {
     if (window.MonacoEditorSettings && window.MonacoEditorSettings.updateSetting) window.MonacoEditorSettings.updateSetting(key, value);
 };
 
+/** Synchronizuje klasy #repo-list: widok list/grid + tryb paska LIVE (nie nadpisuje się nawzajem). */
+function syncRepoListClasses() {
+    const list = document.getElementById('repo-list');
+    const stage = document.getElementById('repo-main-stage');
+    if (!list) return;
+    const parts = ['repo-list-container'];
+    if (currentView === 'grid') parts.push('grid-mode');
+    if (stage && stage.classList.contains('live-active')) parts.push('repo-list--live-strip');
+    list.className = parts.join(' ');
+}
+
 // Layout Toggle
 function applyView() {
-    document.getElementById('repo-list').className = `repo-list-container ${currentView === 'grid' ? 'grid-mode' : ''}`;
+    syncRepoListClasses();
     const viewIconClass = currentView === 'grid' ? 'fas fa-th' : 'fas fa-list';
     document.getElementById('view-toggle').innerHTML = `<i class="${viewIconClass} btn-icon" aria-hidden="true"></i> VIEW: ${currentView.toUpperCase()}`;
 }
@@ -98,11 +127,11 @@ document.querySelectorAll('.md-pre-wrap .md-tab').forEach(function (tab) {
 // System Boot
 async function startBoot() {
     const steps = [
-        { label: 'Init Kernel v2.7', level: 'INFO', log: 'Kernel v2.7 initialized' },
-        { label: 'Mapping UI', level: 'SUCCESS', log: 'UI mapping complete' },
-        { label: 'Handshake GITHUB', level: 'SUCCESS', log: 'GITHUB handshake established' },
-        { label: 'Sync HUD', level: 'SUCCESS', log: 'HUD sync ready' },
-        { label: 'Load repos', level: 'SUCCESS', log: 'Repositories loaded' }
+        { label: 'Init Kernel ', tail: 'v2.77', level: 'INFO', log: 'Kernel v2.77 initialized' },
+        { label: 'Mapping ', tail: 'UI', level: 'SUCCESS', log: 'UI mapping complete' },
+        { label: 'Handshake ', tail: 'GITHUB', level: 'SUCCESS', log: 'GITHUB handshake established' },
+        { label: 'Sync ', tail: 'HUD', level: 'SUCCESS', log: 'HUD sync ready' },
+        { label: 'Load ', tail: 'repos', level: 'SUCCESS', log: 'Repositories loaded' }
     ];
     const listEl = document.getElementById('boot-status-list');
     const progressEl = document.getElementById('progress-fill');
@@ -112,7 +141,7 @@ async function startBoot() {
         const li = document.createElement('li');
         li.className = 'boot-status-item';
         li.dataset.index = idx;
-        li.innerHTML = `<span class="status-icon"><i class="far fa-circle" aria-hidden="true"></i></span><span class="status-text">${step.label}</span>`;
+        li.innerHTML = `<span class="status-icon"><i class="far fa-circle" aria-hidden="true"></i></span><span class="status-text">${step.label}<span class="boot-status-tail">${step.tail}</span></span>`;
         listEl.appendChild(li);
     });
     const items = listEl.querySelectorAll('.boot-status-item');
@@ -193,11 +222,13 @@ async function startBoot() {
             authInfoEl.className = 'splash-auth-info has-auth';
         } else {
             authInfoEl.textContent = '';
-            authInfoEl.innerHTML = '<i class="fas fa-key" aria-hidden="true"></i> NO AUTH KEY — limited API rate (60 req/h). Set key in header to unlock.';
+            authInfoEl.innerHTML = '<i class="fas fa-key" aria-hidden="true"></i> NO AUTH KEY — limited API rate (60 req/h).';
             authInfoEl.className = 'splash-auth-info no-auth';
         }
     }
+
     continueEl.classList.add('visible');
+    continueEl.setAttribute('aria-hidden', 'false');
 
     const passwordInput = document.getElementById('splash-password');
     const passwordError = document.getElementById('splash-password-error');
@@ -214,6 +245,7 @@ async function startBoot() {
             setTimeout(preloadMonaco, 400);
         } else {
             if (passwordError) passwordError.textContent = 'Wrong password.';
+            notifyToast('warning', 'Dostęp', 'Nieprawidłowe hasło.', 3500);
             if (passwordInput) { passwordInput.value = ''; passwordInput.focus(); }
         }
     }
@@ -264,6 +296,7 @@ function initMonaco() {
         if (typeof require === 'undefined') {
             monacoInitStarted = false;
             if (loadingEl) loadingEl.classList.add('hidden');
+            notifyToast('warning', 'Monaco', 'Nie udało się załadować silnika edytora.', 7000);
             return;
         }
         require(['vs/editor/editor.main'], () => {
@@ -346,6 +379,7 @@ document.getElementById('theme-toggle').addEventListener('click', () => {
 });
 
 document.getElementById('btn-logout').addEventListener('click', () => {
+    notifyToast('info', 'Sesja', 'Wylogowano. Wprowadź hasło, aby ponownie wejść.', 4500);
     sessionStorage.removeItem(UNLOCK_STORAGE_KEY);
     document.body.classList.remove('unlocked');
     const splash = document.getElementById('splash-screen');
@@ -390,6 +424,12 @@ document.getElementById('apply-token').addEventListener('click', () => {
     document.getElementById('gh-token').value = '';
     closeAuthModal();
     fetchRepos();
+    notifyToast(
+        githubToken ? 'success' : 'warning',
+        'AUTH',
+        githubToken ? 'Token zapisany. Wyższy limit API GitHub.' : 'Token usunięty z tej przeglądarki.',
+        4500
+    );
 });
 
 document.getElementById('clear-token').addEventListener('click', () => {
@@ -400,6 +440,7 @@ document.getElementById('clear-token').addEventListener('click', () => {
     document.getElementById('auth-status').style.color = 'var(--danger-color)';
     closeAuthModal();
     fetchRepos();
+    notifyToast('info', 'AUTH', 'Token odłączony. Limit API: tryb publiczny.', 4500);
 });
 
 const closeBrowser = () => {
@@ -450,6 +491,9 @@ document.getElementById('cdn-copy').addEventListener('click', () => {
         navigator.clipboard.writeText(url).then(() => {
             const btn = document.getElementById('cdn-copy');
             const t = btn.textContent; btn.textContent = 'OK'; setTimeout(() => { btn.textContent = t; }, 800);
+            notifyToast('success', 'Schowek', 'URL skopiowany do schowka.', 2500);
+        }).catch(() => {
+            notifyToast('warning', 'Schowek', 'Nie udało się skopiować (uprawnienia przeglądarki).', 4500);
         });
     }
 });
@@ -517,6 +561,7 @@ async function fetchFiles(path) {
         if (!res.ok) {
             const msg = (data && data.message) ? data.message : `HTTP ${res.status}`;
             list.innerHTML = `<div class="explorer-item" style="color:var(--danger-color)">${msg}</div>`;
+            notifyToast('critical', 'Eksplorator plików', msg, 6500);
             return;
         }
         const files = Array.isArray(data) ? data : [data];
@@ -549,7 +594,9 @@ async function fetchFiles(path) {
             list.appendChild(el);
         });
     } catch (e) {
-        list.innerHTML = `<div class="explorer-item" style="color:var(--danger-color)">${e.message || 'ERR'}</div>`;
+        const msg = e.message || 'ERR';
+        list.innerHTML = `<div class="explorer-item" style="color:var(--danger-color)">${msg}</div>`;
+        notifyToast('critical', 'Eksplorator plików', msg, 6500);
     }
 }
 
@@ -630,7 +677,9 @@ async function loadContent(file) {
             }
         }
     } catch (e) {
-        if (editor) editor.setModel(monaco.editor.createModel(`// Error: ${e.message || 'Failed to load'}`, 'plaintext'));
+        const msg = e.message || 'Failed to load';
+        notifyToast('critical', 'Podgląd pliku', msg, 6500);
+        if (editor) editor.setModel(monaco.editor.createModel(`// Error: ${msg}`, 'plaintext'));
         var preWrap = document.getElementById('md-pre-wrap');
         if (preWrap) { preWrap.classList.remove('visible'); preWrap.setAttribute('aria-hidden', 'true'); }
     }
@@ -642,7 +691,58 @@ function getRepoStatus(repo) {
     return repo.archived ? 'ARCHIVED' : (isStale ? 'STALE' : 'ACTIVE');
 }
 
+function getLiveSiteUrl(repo) {
+    if (!repo || !repo.has_pages) return '';
+    return repo.name === `${USERNAME}.github.io` ? `https://${USERNAME}.github.io/` : `https://${USERNAME}.github.io/${repo.name}/`;
+}
+
+function updateLiveModeLayout() {
+    const stage = document.getElementById('repo-main-stage');
+    const panel = document.getElementById('repo-live-panel');
+    if (!stage || !panel) return;
+    if (repoFilter === 'live') {
+        stage.classList.add('live-active');
+        panel.removeAttribute('hidden');
+        panel.setAttribute('aria-hidden', 'false');
+    } else {
+        stage.classList.remove('live-active');
+        panel.setAttribute('hidden', '');
+        panel.setAttribute('aria-hidden', 'true');
+    }
+    syncRepoListClasses();
+}
+
+function clearLivePreview() {
+    const iframe = document.getElementById('repo-live-iframe');
+    const empty = document.getElementById('repo-live-empty');
+    const urlInput = document.getElementById('repo-live-url');
+    const openLink = document.getElementById('repo-live-open');
+    if (iframe) iframe.removeAttribute('src');
+    if (empty) empty.classList.remove('is-hidden');
+    if (urlInput) urlInput.value = '';
+    if (openLink) openLink.setAttribute('href', '#');
+    document.querySelectorAll('#repo-list .agenda-row.live-selected').forEach(r => r.classList.remove('live-selected'));
+}
+
+function loadLivePreview(url) {
+    if (!url) return;
+    const iframe = document.getElementById('repo-live-iframe');
+    const empty = document.getElementById('repo-live-empty');
+    const urlInput = document.getElementById('repo-live-url');
+    const openLink = document.getElementById('repo-live-open');
+    if (!iframe) return;
+    iframe.src = url;
+    if (empty) empty.classList.add('is-hidden');
+    if (urlInput) urlInput.value = url;
+    if (openLink) openLink.href = url;
+    document.querySelectorAll('#repo-list .agenda-row').forEach(r => {
+        r.classList.toggle('live-selected', r.getAttribute('data-live-url') === url);
+    });
+}
+
 function renderRepoList() {
+    if (repoFilter !== 'live') clearLivePreview();
+
     const filtered = repoFilter === 'all' ? allRepos
         : repoFilter === 'active' ? allRepos.filter(r => getRepoStatus(r) === 'ACTIVE')
             : allRepos.filter(r => r.has_pages);
@@ -652,9 +752,10 @@ function renderRepoList() {
         const repo = filtered[idx];
         const lastPush = new Date(repo.pushed_at);
         const status = getRepoStatus(repo);
-        const ioUrl = repo.name === `${USERNAME}.github.io` ? `https://${USERNAME}.github.io/` : `https://${USERNAME}.github.io/${repo.name}/`;
+        const ioUrl = getLiveSiteUrl(repo);
         const row = document.createElement('div');
         row.className = 'agenda-row';
+        if (ioUrl) row.setAttribute('data-live-url', ioUrl);
         row.innerHTML = `
                     <div class="index-col">${String(idx + 1).padStart(2, '0')}</div>
                     <div class="info-col">
@@ -680,8 +781,16 @@ function renderRepoList() {
     }
     list.innerHTML = '';
     list.appendChild(fragment);
+    updateLiveModeLayout();
+    if (repoFilter === 'live') {
+        const first = list.querySelector('.agenda-row[data-live-url]');
+        const u = first && first.getAttribute('data-live-url');
+        if (u) loadLivePreview(u);
+        else clearLivePreview();
+    }
 }
 
+/** @returns {Promise<boolean>} true gdy lista została wczytana (w tym częściowo po błędzie na kolejnej stronie) */
 async function fetchRepos() {
     const rateEl = document.getElementById('rate-limit');
     try {
@@ -690,12 +799,15 @@ async function fetchRepos() {
         const perPage = 100;
         for (; ;) {
             const res = await fetch(`https://api.github.com/users/${USERNAME}/repos?sort=pushed&per_page=${perPage}&page=${page}`, { headers: getHeaders() });
-            rateEl.textContent = `${res.headers.get('x-ratelimit-remaining') || '-'}/${res.headers.get('x-ratelimit-limit') || '-'}`;
+            if (rateEl) {
+                rateEl.textContent = `${res.headers.get('x-ratelimit-remaining') || '-'}/${res.headers.get('x-ratelimit-limit') || '-'}`;
+            }
             const chunk = await res.json();
             if (!res.ok) {
                 const msg = (chunk && chunk.message) ? chunk.message : `HTTP ${res.status}`;
                 console.error('fetchRepos:', msg);
-                if (repos.length === 0) return;
+                notifyToast('critical', 'GitHub API', msg, 8000);
+                if (repos.length === 0) return false;
                 break;
             }
             if (!Array.isArray(chunk) || chunk.length === 0) break;
@@ -713,12 +825,35 @@ async function fetchRepos() {
         document.getElementById('stat-total').textContent = repos.length;
         document.getElementById('stat-active').textContent = active;
         document.getElementById('stat-pages').textContent = pages;
+        const statLive = document.getElementById('stat-live');
+        if (statLive) statLive.textContent = pages;
         renderRepoList();
+        return true;
     } catch (e) {
         console.error(e);
-        rateEl.textContent = rateEl.textContent || 'ERR';
+        if (rateEl) rateEl.textContent = rateEl.textContent || 'ERR';
+        notifyToast('critical', 'GitHub API', e.message || String(e), 8000);
+        return false;
     }
 }
+
+document.getElementById('repo-refresh-btn').addEventListener('click', async function () {
+    const btn = document.getElementById('repo-refresh-btn');
+    if (!btn || btn.disabled) return;
+    const icon = btn.querySelector('.btn-icon') || btn.querySelector('i');
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    const prevIconClass = icon ? icon.className : '';
+    if (icon) icon.className = 'fas fa-spinner fa-spin btn-icon';
+    try {
+        const ok = await fetchRepos();
+        if (ok) notifyToast('success', 'Repozytoria', `Lista zaktualizowana (${allRepos.length}).`, 3200);
+    } finally {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+        if (icon) icon.className = prevIconClass;
+    }
+});
 
 document.querySelectorAll('.dashboard-grid .card--filter').forEach(card => {
     card.addEventListener('click', () => {
@@ -730,9 +865,68 @@ document.querySelectorAll('.dashboard-grid .card--filter').forEach(card => {
     card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.click(); } });
 });
 
-document.getElementById('session-id').textContent = Math.random().toString(16).slice(2, 10).toUpperCase();
+document.getElementById('repo-list').addEventListener('click', function (e) {
+    if (repoFilter !== 'live') return;
+    if (e.target.closest('a, button')) return;
+    const row = e.target.closest('.agenda-row[data-live-url]');
+    if (!row) return;
+    const url = row.getAttribute('data-live-url');
+    if (url) loadLivePreview(url);
+});
+
+const repoLiveReload = document.getElementById('repo-live-reload');
+if (repoLiveReload) {
+    repoLiveReload.addEventListener('click', function () {
+        const iframe = document.getElementById('repo-live-iframe');
+        const url = document.getElementById('repo-live-url') && document.getElementById('repo-live-url').value;
+        if (!iframe || !url) return;
+        iframe.removeAttribute('src');
+        requestAnimationFrame(function () { iframe.src = url; });
+    });
+}
+
+function updateFooterYear() {
+    const el = document.getElementById('footer-year');
+    if (!el) return;
+    const y = new Date().getFullYear();
+    el.textContent = String(y);
+    if (el.tagName === 'TIME') el.setAttribute('datetime', String(y));
+}
+
+const sessionIdEl = document.getElementById('session-id');
+if (sessionIdEl) sessionIdEl.textContent = Math.random().toString(16).slice(2, 10).toUpperCase();
+updateFooterYear();
+document.addEventListener('DOMContentLoaded', updateFooterYear);
 loadStoredAuth();
 applyView();
+
+const LIVE_TOOLBAR_COLLAPSED_KEY = 'git_scanner_live_toolbar_collapsed';
+
+function initLiveToolbarToggle() {
+    const panel = document.getElementById('repo-live-panel');
+    const btn = document.getElementById('repo-live-toolbar-toggle');
+    if (!panel || !btn) return;
+
+    const applyCollapsed = (collapsed) => {
+        panel.classList.toggle('repo-live-panel--toolbar-collapsed', collapsed);
+        btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        try {
+            localStorage.setItem(LIVE_TOOLBAR_COLLAPSED_KEY, collapsed ? '1' : '0');
+        } catch (e) { /* ignore */ }
+    };
+
+    let startCollapsed = false;
+    try {
+        startCollapsed = localStorage.getItem(LIVE_TOOLBAR_COLLAPSED_KEY) === '1';
+    } catch (e) { /* ignore */ }
+    applyCollapsed(startCollapsed);
+
+    btn.addEventListener('click', function () {
+        applyCollapsed(!panel.classList.contains('repo-live-panel--toolbar-collapsed'));
+    });
+}
+
+initLiveToolbarToggle();
 
 window.onload = function () {
     startBoot();
