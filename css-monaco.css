@@ -474,6 +474,9 @@
 }
 
 .settings-sidebar-header .close-settings {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
     background: var(--bg-tertiary);
     border: 1px solid var(--bg-color);
     color: var(--text-muted);

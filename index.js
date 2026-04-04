@@ -932,8 +932,32 @@ window.onload = function () {
     startBoot();
 };
 
+function initBtnRipple() {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    document.body.addEventListener('pointerdown', function (e) {
+        if (reduceMotion.matches) return;
+        const btn = e.target.closest('.btn, .btn-cmd');
+        if (!btn || btn.disabled || btn.getAttribute('aria-disabled') === 'true') return;
+        const r = btn.getBoundingClientRect();
+        const x = e.clientX - r.left;
+        const y = e.clientY - r.top;
+        const cover = Math.hypot(Math.max(x, r.width - x), Math.max(y, r.height - y)) * 2;
+        const ripple = document.createElement('span');
+        ripple.className = 'ripple';
+        ripple.style.width = ripple.style.height = cover + 'px';
+        ripple.style.left = x - cover / 2 + 'px';
+        ripple.style.top = y - cover / 2 + 'px';
+        btn.appendChild(ripple);
+        ripple.addEventListener('animationend', function () {
+            ripple.remove();
+        });
+    });
+}
+
 // Add these to your existing script section
 document.addEventListener("DOMContentLoaded", function () {
+    initBtnRipple();
+
     // Remove draggable attribute from all elements
     document.querySelectorAll('[draggable="true"]').forEach((el) => {
         el.removeAttribute("draggable");

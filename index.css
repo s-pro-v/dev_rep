@@ -74,6 +74,8 @@
         #f6f8fa;
 
     --boot-github-done: #1a7f37;
+
+    --ui-hover-sheen-bg: rgba(0, 0, 0, 0.07);
 }
 
 :root.theme-switching,
@@ -133,6 +135,8 @@
         #010405;
 
     --boot-github-done: #3fb950;
+
+    --ui-hover-sheen-bg: rgba(255, 255, 255, 0.1);
 }
 
 /* CORE RESET */
@@ -876,6 +880,9 @@ body:not(.unlocked) {
 }
 
 .auth-modal-close {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
     background: var(--bg-tertiary);
     border: 1px solid transparent;
     color: var(--text-muted);
@@ -1017,6 +1024,7 @@ body:not(.unlocked) {
     content: "";
     position: absolute;
     inset: 0;
+    z-index: 0;
     background-image: var(--bg-grid);
     background-size: var(--bg-grid-size);
     opacity: 0.5;
@@ -1048,6 +1056,35 @@ body:not(.unlocked) {
 
 .dashboard-grid .card.card--filter:hover {
     background-color: var(--hover-bg);
+}
+
+.dashboard-grid .card.card--filter>* {
+    position: relative;
+    z-index: 2;
+}
+
+.dashboard-grid .card.card--filter::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: var(--ui-hover-sheen-bg);
+    border-radius: 0%;
+    transform: translate(-50%, -50%);
+    transition:
+        width 0.4s ease,
+        height 0.4s ease,
+        border-radius 0.22s ease;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.dashboard-grid .card.card--filter:hover::after {
+    width: min(36rem, 160%);
+    height: min(36rem, 160%);
+    border-radius: 50%;
 }
 
 .dashboard-grid .card.card--filter:active {
@@ -1483,6 +1520,35 @@ body:not(.unlocked) {
             var(--grid-color) 11px);
 }
 
+.agenda-row>* {
+    position: relative;
+    z-index: 1;
+}
+
+.agenda-row::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: var(--ui-hover-sheen-bg);
+    border-radius: 0%;
+    transform: translate(-50%, -50%);
+    transition:
+        width 0.4s ease,
+        height 0.4s ease,
+        border-radius 0.22s ease;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.agenda-row:hover::before {
+    width: min(48rem, 220%);
+    height: min(48rem, 220%);
+    border-radius: 50%;
+}
+
 .agenda-row:hover {
     border-color: var(--border-color);
     border-left-color: var(--warning-color);
@@ -1748,6 +1814,9 @@ body:not(.unlocked) {
     }
 
     .modal-header-row .cdn-bar .btn-copy {
+        position: relative;
+        overflow: hidden;
+        isolation: isolate;
         flex-shrink: 0;
         min-width: 4.5rem;
         margin: 0;
@@ -1820,6 +1889,8 @@ body:not(.unlocked) {
         }
 
         .file-explorer-panel .explorer-item {
+            position: relative;
+            isolation: isolate;
             padding: 0.4rem 0.5rem;
             cursor: pointer;
             font-size: 0.75rem;
@@ -1940,6 +2011,9 @@ body:not(.unlocked) {
         }
 
         .md-pre-wrap .md-tab {
+            position: relative;
+            overflow: hidden;
+            isolation: isolate;
             padding: 0.35rem 1rem;
             font-size: 0.65rem;
             text-transform: uppercase;
@@ -2078,6 +2152,10 @@ body:not(.unlocked) {
 }
 
 .btn {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    --btn-ripple-color: var(--text-primary);
     background: var(--bg-tertiary);
     color: var(--text-muted);
     border: 1px solid var(--bg-color);
@@ -2111,6 +2189,194 @@ body:not(.unlocked) {
     }
 }
 
+@keyframes btn-ripple-expand {
+    to {
+        transform: scale(1);
+        opacity: 0;
+    }
+}
+
+.btn>* {
+    position: relative;
+    z-index: 1;
+}
+
+.btn .ripple,
+.btn-cmd .ripple {
+    position: absolute;
+    left: 0;
+    top: 0;
+    border-radius: 50%;
+    pointer-events: none;
+    transform: scale(0);
+    opacity: 0.42;
+    background: color-mix(in srgb, var(--btn-ripple-color) 34%, transparent);
+    animation: btn-ripple-expand 0.55s cubic-bezier(0, 0, 0.2, 1) forwards;
+    z-index: 2;
+}
+
+.btn.view-toggle {
+    --btn-ripple-color: var(--info-color);
+}
+
+.btn.key-toggle {
+    --btn-ripple-color: var(--warning-color);
+}
+
+.btn.theme-toggle {
+    --btn-ripple-color: var(--warning-color);
+}
+
+.btn.repo-refresh {
+    --btn-ripple-color: var(--highlight-color);
+}
+
+.btn.apply-token {
+    --btn-ripple-color: var(--success-color);
+}
+
+.btn.clear-token {
+    --btn-ripple-color: var(--danger-color);
+}
+
+.btn.btn-logout {
+    --btn-ripple-color: var(--danger-color);
+}
+
+.btn.close-browser {
+    --btn-ripple-color: var(--danger-color);
+}
+
+.btn.btn-copy {
+    --btn-ripple-color: var(--info-color);
+}
+
+.btn.splash-unlock-btn {
+    --btn-ripple-color: var(--highlight-color);
+}
+
+.btn.repo-live-reload {
+    --btn-ripple-color: var(--highlight-color);
+}
+
+.btn.code {
+    --btn-ripple-color: var(--warning-color);
+}
+
+.btn.btn-io {
+    --btn-ripple-color: var(--highlight-color);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .btn .ripple,
+    .btn-cmd .ripple {
+        animation: none;
+        opacity: 0;
+    }
+}
+
+/* Połysk od środka przy :hover (jak Material ripple, ale CSS-only) */
+.btn::before,
+.btn-cmd::before,
+.code::before,
+.auth-modal-close::before,
+.sm::before,
+.file-explorer-panel .explorer-item::before,
+.md-pre-wrap .md-tab::before,
+.modal-header-row .cdn-bar .btn-copy::before,
+.settings-sidebar-header .close-settings::before,
+#hud-confirm-modal .close-btn::before,
+#hud-confirm-modal .cancel-btn::before,
+#hud-confirm-modal .system-alert-btn::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: var(--ui-hover-sheen-bg);
+    border-radius: 0%;
+    transform: translate(-50%, -50%);
+    transition:
+        width 0.4s ease,
+        height 0.4s ease,
+        border-radius 0.22s ease;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.btn:hover:not(:disabled)::before,
+.btn-cmd:hover:not(:disabled)::before,
+.code:hover::before,
+.auth-modal-close:hover::before,
+.sm:hover::before,
+.file-explorer-panel .explorer-item:hover::before,
+.md-pre-wrap .md-tab:hover::before,
+.modal-header-row .cdn-bar .btn-copy:hover::before,
+.settings-sidebar-header .close-settings:hover::before,
+#hud-confirm-modal .close-btn:hover::before,
+#hud-confirm-modal .cancel-btn:hover::before,
+#hud-confirm-modal .system-alert-btn:hover::before {
+    width: min(22rem, 280%);
+    height: min(22rem, 280%);
+    border-radius: 50%;
+}
+
+.btn:disabled::before,
+.btn-cmd:disabled::before {
+    display: none;
+}
+
+.btn-cmd>*,
+.code>*,
+.auth-modal-close>*,
+.sm>*,
+.file-explorer-panel .explorer-item>*,
+.modal-header-row .cdn-bar .btn-copy>* {
+    position: relative;
+    z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .btn::before,
+    .btn-cmd::before,
+    .code::before,
+    .auth-modal-close::before,
+    .sm::before,
+    .file-explorer-panel .explorer-item::before,
+    .md-pre-wrap .md-tab::before,
+    .modal-header-row .cdn-bar .btn-copy::before,
+    .settings-sidebar-header .close-settings::before,
+    #hud-confirm-modal .close-btn::before,
+    #hud-confirm-modal .cancel-btn::before,
+    #hud-confirm-modal .system-alert-btn::before,
+    .dashboard-grid .card.card--filter::after,
+    .agenda-row::before {
+        transition: none;
+    }
+
+    .btn:hover::before,
+    .btn-cmd:hover::before,
+    .code:hover::before,
+    .auth-modal-close:hover::before,
+    .sm:hover::before,
+    .file-explorer-panel .explorer-item:hover::before,
+    .md-pre-wrap .md-tab:hover::before,
+    .modal-header-row .cdn-bar .btn-copy:hover::before,
+    .settings-sidebar-header .close-settings:hover::before,
+    #hud-confirm-modal .close-btn:hover::before,
+    #hud-confirm-modal .cancel-btn:hover::before,
+    #hud-confirm-modal .system-alert-btn:hover::before,
+    .dashboard-grid .card.card--filter:hover::after,
+    .agenda-row:hover::before {
+        width: 0;
+        height: 0;
+        border-radius: 0%;
+    }
+}
+
 .btn-io {
     background: var(--bg-tertiary);
     color: var(--highlight-color);
@@ -2141,6 +2407,11 @@ body:not(.unlocked) {
 }
 
 .code {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    display: inline-flex;
+    align-items: center;
     color: var(--warning-color);
     border: 1px solid var(--border-color);
     box-shadow: var(--shadow-drop);
@@ -2167,6 +2438,10 @@ body:not(.unlocked) {
 }
 
 .btn-cmd {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    --btn-ripple-color: var(--info-color);
     color: var(--info-color);
     text-decoration: none;
     font-weight: bold;
@@ -2616,6 +2891,9 @@ body.unlocked .app-content {
 }
 
 .sm {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
     width: 2rem;
     height: 2rem;
     display: flex;

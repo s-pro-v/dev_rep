@@ -73,3 +73,12 @@
 .git-scanner-hud-toasts .toast-message {
     user-select: text;
 }
+
+/* Połysk :hover z index.css (::before) — przycinanie do przycisków modala */
+#hud-confirm-modal .close-btn,
+#hud-confirm-modal .cancel-btn,
+#hud-confirm-modal .system-alert-btn {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+}
