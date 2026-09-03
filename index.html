@@ -132,11 +132,12 @@
                             class="fas fa-times" aria-hidden="true"></i></button>
                 </div>
                 <div class="auth-modal-body">
-                    <label for="gh-token">Token (Personal Access Token)</label>
-                    <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off"
+                    <label for="gh-token">ACCESS KEY / HASŁO</label>
+                    <input type="password" id="gh-token" placeholder="Wpisz hasło dostępu..." autocomplete="off"
                         aria-describedby="auth-token-hint">
-                    <p class="auth-modal-hint" id="auth-token-hint">Ustaw token, aby zwiększyć limit API (60 → 5000
-                        req/h). Token zapisujemy lokalnie w przeglądarce.</p>
+                    <p class="auth-modal-hint" id="auth-token-hint">Wpisz hasło, aby pobrać i odszyfrować token z bazy
+                        (limit
+                        5000 req/h).</p>
                     <div class="auth-modal-actions">
                         <button type="button" class="btn apply-token" id="apply-token"><i class="fas fa-plug btn-icon"
                                 aria-hidden="true"></i> CONNECT</button>
@@ -306,8 +307,8 @@
         </div>
     </div>
     <div id="hud-toast-container" class="toast-container git-scanner-hud-toasts" aria-live="polite"></div>
-
     <script src="hud-notify.js"></script>
+    <script src="remote-auth.js"></script>
     <script src="index.js"></script>
 
 

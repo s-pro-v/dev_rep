@@ -1,983 +1,1360 @@
-const USERNAME = 's-pro-v';
-const AUTH_STORAGE_KEY = 'git_scanner_auth';
-const VIEW_STORAGE_KEY = 'git_scanner_view';
-const OBFUSCATE_KEY = 'S-PRO-V_VFS_2027'; // do odszyfrowania w pamięci
-const BOOT_PASSWORD = 'admin'; // hasło do wejścia – zmień na własne
-const UNLOCK_STORAGE_KEY = 'git_scanner_unlocked'; // sessionStorage – do zamknięcia karty
-let editor, currentRepo = '', currentOpenFilePath = '', currentTheme = 'dark', githubToken = '', currentView = (localStorage.getItem(VIEW_STORAGE_KEY) || 'list');
-let allRepos = [], repoFilter = 'all';
+const USERNAME = "s-pro-v";
+const AUTH_STORAGE_KEY = "git_scanner_auth";
+const VIEW_STORAGE_KEY = "git_scanner_view";
+const OBFUSCATE_KEY = "S-PRO-V_VFS_2027";
+const BOOT_PASSWORD = "admin";
+const UNLOCK_STORAGE_KEY = "git_scanner_unlocked";
+
+let editor,
+  currentRepo = "",
+  currentOpenFilePath = "",
+  currentTheme = "dark",
+  githubToken = "",
+  currentView = localStorage.getItem(VIEW_STORAGE_KEY) || "list";
+let allRepos = [],
+  repoFilter = "all";
 
 function notifyToast(level, title, message, durationMs) {
-    if (typeof window.HudNotify !== 'undefined' && typeof window.HudNotify.toast === 'function') {
-        window.HudNotify.toast(level, title, message, durationMs);
-    }
+  if (
+    typeof window.HudNotify !== "undefined" &&
+    typeof window.HudNotify.toast === "function"
+  ) {
+    window.HudNotify.toast(level, title, message, durationMs);
+  }
 }
 
 function utf8ToBase64(str) {
-    const bytes = new TextEncoder().encode(str);
-    let bin = '';
-    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-    return btoa(bin);
+  const bytes = new TextEncoder().encode(str);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
 }
+
 function base64ToUtf8(b64) {
-    const bin = atob(b64);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i) & 0xff;
-    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i) & 0xff;
+  return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
 }
+
 function obfuscate(str) {
-    let out = '';
-    for (let i = 0; i < str.length; i++) {
-        out += String.fromCharCode(str.charCodeAt(i) ^ OBFUSCATE_KEY.charCodeAt(i % OBFUSCATE_KEY.length));
-    }
-    return utf8ToBase64(out);
+  let out = "";
+  for (let i = 0; i < str.length; i++) {
+    out += String.fromCharCode(
+      str.charCodeAt(i) ^ OBFUSCATE_KEY.charCodeAt(i % OBFUSCATE_KEY.length),
+    );
+  }
+  return utf8ToBase64(out);
 }
+
 function deobfuscate(str) {
-    try {
-        const raw = base64ToUtf8(str);
-        let out = '';
-        for (let i = 0; i < raw.length; i++) {
-            out += String.fromCharCode(raw.charCodeAt(i) ^ OBFUSCATE_KEY.charCodeAt(i % OBFUSCATE_KEY.length));
-        }
-        return out;
-    } catch (e) { return ''; }
-}
-function loadStoredAuth() {
-    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (!stored) return;
-    const token = deobfuscate(stored);
-    if (token) {
-        githubToken = token;
-        document.getElementById('auth-status').innerHTML = '<i class="fas fa-check btn-icon" aria-hidden="true"></i> AUTH: YES';
-        document.getElementById('auth-status').style.color = 'var(--success-color)';
+  try {
+    const raw = base64ToUtf8(str);
+    let out = "";
+    for (let i = 0; i < raw.length; i++) {
+      out += String.fromCharCode(
+        raw.charCodeAt(i) ^ OBFUSCATE_KEY.charCodeAt(i % OBFUSCATE_KEY.length),
+      );
     }
+    return out;
+  } catch (e) {
+    return "";
+  }
 }
+
+function loadStoredAuth() {
+  const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+  if (!stored) return;
+  const token = deobfuscate(stored);
+  if (token) {
+    githubToken = token;
+    const authStatus = document.getElementById("auth-status");
+    if (authStatus) {
+      authStatus.innerHTML =
+        '<i class="fas fa-check btn-icon" aria-hidden="true"></i> AUTH: YES';
+      authStatus.style.color = "var(--success-color)";
+    }
+  }
+}
+
 function saveAuth(token) {
-    if (token) localStorage.setItem(AUTH_STORAGE_KEY, obfuscate(token));
-    else localStorage.removeItem(AUTH_STORAGE_KEY);
+  if (token) localStorage.setItem(AUTH_STORAGE_KEY, obfuscate(token));
+  else localStorage.removeItem(AUTH_STORAGE_KEY);
 }
 
 const getHeaders = () => {
-    const h = { 'Accept': 'application/vnd.github.v3+json' };
-    if (githubToken) h['Authorization'] = `token ${githubToken}`;
-    return h;
+  const h = { Accept: "application/vnd.github.v3+json" };
+  if (githubToken) {
+    h["Authorization"] = `Bearer ${githubToken}`;
+  }
+  return h;
 };
 
-const MONACO_SETTINGS_KEY = 'git_scanner_monaco_settings';
+const MONACO_SETTINGS_KEY = "git_scanner_monaco_settings";
 
 function getMonacoSettings() {
-    try {
-        const s = localStorage.getItem(MONACO_SETTINGS_KEY);
-        return s ? JSON.parse(s) : {};
-    } catch (e) { return {}; }
+  try {
+    const s = localStorage.getItem(MONACO_SETTINGS_KEY);
+    return s ? JSON.parse(s) : {};
+  } catch (e) {
+    return {};
+  }
 }
 
 function saveMonacoSettings(obj) {
-    try {
-        localStorage.setItem(MONACO_SETTINGS_KEY, JSON.stringify(obj));
-    } catch (e) { }
+  try {
+    localStorage.setItem(MONACO_SETTINGS_KEY, JSON.stringify(obj));
+  } catch (e) {}
 }
 
 window.getMonacoSettings = getMonacoSettings;
 
-if (typeof window.MonacoEditorSettings !== 'undefined' && window.MonacoEditorSettings.loadSettings) {
-    window.MonacoEditorSettings.loadSettings();
+if (
+  typeof window.MonacoEditorSettings !== "undefined" &&
+  window.MonacoEditorSettings.loadSettings
+) {
+  window.MonacoEditorSettings.loadSettings();
 }
+
 window.switchSettingsTab = function (tabId) {
-    if (window.MonacoEditorSettings && window.MonacoEditorSettings.switchSettingsTab) window.MonacoEditorSettings.switchSettingsTab(tabId);
+  if (
+    window.MonacoEditorSettings &&
+    window.MonacoEditorSettings.switchSettingsTab
+  )
+    window.MonacoEditorSettings.switchSettingsTab(tabId);
 };
+
 window.updateSetting = function (key, value) {
-    if (window.MonacoEditorSettings && window.MonacoEditorSettings.updateSetting) window.MonacoEditorSettings.updateSetting(key, value);
+  if (window.MonacoEditorSettings && window.MonacoEditorSettings.updateSetting)
+    window.MonacoEditorSettings.updateSetting(key, value);
 };
 
-/** Synchronizuje klasy #repo-list: widok list/grid + tryb paska LIVE (nie nadpisuje się nawzajem). */
 function syncRepoListClasses() {
-    const list = document.getElementById('repo-list');
-    const stage = document.getElementById('repo-main-stage');
-    if (!list) return;
-    const parts = ['repo-list-container'];
-    if (currentView === 'grid') parts.push('grid-mode');
-    if (stage && stage.classList.contains('live-active')) parts.push('repo-list--live-strip');
-    list.className = parts.join(' ');
+  const list = document.getElementById("repo-list");
+  const stage = document.getElementById("repo-main-stage");
+  if (!list) return;
+  const parts = ["repo-list-container"];
+  if (currentView === "grid") parts.push("grid-mode");
+  if (stage && stage.classList.contains("live-active"))
+    parts.push("repo-list--live-strip");
+  list.className = parts.join(" ");
 }
 
-// Layout Toggle
 function applyView() {
-    syncRepoListClasses();
-    const viewIconClass = currentView === 'grid' ? 'fas fa-th' : 'fas fa-list';
-    document.getElementById('view-toggle').innerHTML = `<i class="${viewIconClass} btn-icon" aria-hidden="true"></i> VIEW: ${currentView.toUpperCase()}`;
+  syncRepoListClasses();
+  const viewIconClass = currentView === "grid" ? "fas fa-th" : "fas fa-list";
+  const viewToggle = document.getElementById("view-toggle");
+  if (viewToggle) {
+    viewToggle.innerHTML = `<i class="${viewIconClass} btn-icon" aria-hidden="true"></i> VIEW: ${currentView.toUpperCase()}`;
+  }
 }
-document.getElementById('view-toggle').addEventListener('click', () => {
-    currentView = currentView === 'list' ? 'grid' : 'list';
+
+const viewToggleEl = document.getElementById("view-toggle");
+if (viewToggleEl) {
+  viewToggleEl.addEventListener("click", () => {
+    currentView = currentView === "list" ? "grid" : "list";
     localStorage.setItem(VIEW_STORAGE_KEY, currentView);
     applyView();
-});
-
-document.querySelectorAll('.md-pre-wrap .md-tab').forEach(function (tab) {
-    tab.addEventListener('click', function () {
-        var panelId = 'md-panel-' + (this.getAttribute('data-panel') || 'preview');
-        document.querySelectorAll('.md-pre-wrap .md-tab').forEach(function (t) { t.classList.remove('active'); });
-        document.querySelectorAll('.md-pre-wrap .md-panel').forEach(function (p) { p.classList.remove('active'); });
-        this.classList.add('active');
-        var panel = document.getElementById(panelId);
-        if (panel) panel.classList.add('active');
-    });
-});
-
-// System Boot
-async function startBoot() {
-    const steps = [
-        { label: 'Init Kernel ', tail: 'v2.77', level: 'INFO', log: 'Kernel v2.77 initialized' },
-        { label: 'Mapping ', tail: 'UI', level: 'SUCCESS', log: 'UI mapping complete' },
-        { label: 'Handshake ', tail: 'GITHUB', level: 'SUCCESS', log: 'GITHUB handshake established' },
-        { label: 'Sync ', tail: 'HUD', level: 'SUCCESS', log: 'HUD sync ready' },
-        { label: 'Load ', tail: 'repos', level: 'SUCCESS', log: 'Repositories loaded' }
-    ];
-    const listEl = document.getElementById('boot-status-list');
-    const progressEl = document.getElementById('progress-fill');
-    const bootLogEl = document.getElementById('boot-log');
-    listEl.innerHTML = '';
-    steps.forEach((step, idx) => {
-        const li = document.createElement('li');
-        li.className = 'boot-status-item';
-        li.dataset.index = idx;
-        li.innerHTML = `<span class="status-icon"><i class="far fa-circle" aria-hidden="true"></i></span><span class="status-text">${step.label}<span class="boot-status-tail">${step.tail}</span></span>`;
-        listEl.appendChild(li);
-    });
-    const items = listEl.querySelectorAll('.boot-status-item');
-
-    let logSeq = 0;
-    function appendBootLogEntry(level, message) {
-        logSeq += 1;
-        const entry = document.createElement('div');
-        entry.className = 'boot-log-entry';
-        const tag = `[BOOT ${String(logSeq).padStart(2, '0')}]`;
-        const levelClass = level === 'INFO' ? 'info' : 'success';
-        entry.innerHTML = `
-                    <div class="boot-log-head">
-                        <span class="boot-log-time">${tag}</span>
-                        <span class="boot-log-level ${levelClass}">${level}</span>
-                    </div>
-                    <div class="boot-log-msg">
-                        <span class="boot-log-indent">L</span>
-                        <span class="boot-log-text">${message}</span>
-                    </div>`;
-        bootLogEl.appendChild(entry);
-        bootLogEl.scrollTop = bootLogEl.scrollHeight;
-    }
-
-    for (let i = 0; i < steps.length; i++) {
-        items.forEach((el, j) => {
-            const icon = el.querySelector('.status-icon i');
-            el.classList.remove('loading', 'done');
-            if (j < i) {
-                el.classList.add('done');
-                if (icon) { icon.className = 'fas fa-check'; }
-            } else if (j === i) {
-                el.classList.add('loading');
-                if (icon) { icon.className = 'fas fa-spinner fa-spin'; }
-            } else {
-                if (icon) { icon.className = 'far fa-circle'; }
-            }
-        });
-        progressEl.style.width = `${((i + 1) / steps.length) * 100}%`;
-        appendBootLogEntry(steps[i].level, steps[i].log);
-        if (i === steps.length - 1) {
-            await fetchRepos();
-        } else {
-            await new Promise(r => setTimeout(r, 200));
-        }
-    }
-
-    items[items.length - 1].classList.remove('loading');
-    items[items.length - 1].classList.add('done');
-    items[items.length - 1].querySelector('.status-icon i').className = 'fas fa-check';
-    progressEl.style.width = '100%';
-    await new Promise(r => setTimeout(r, 400));
-
-    const continueEl = document.getElementById('splash-continue');
-    const continueBtn = document.getElementById('splash-continue-btn');
-    const authInfoEl = document.getElementById('splash-auth-info');
-
-    function closeSplash() {
-        document.getElementById('splash-screen').style.opacity = '0';
-        document.getElementById('splash-screen').style.transition = 'opacity 0.4s ease';
-        setTimeout(() => {
-            document.getElementById('splash-screen').style.display = 'none';
-            document.removeEventListener('keydown', onKey);
-        }, 450);
-    }
-
-    if (sessionStorage.getItem(UNLOCK_STORAGE_KEY) === '1') {
-        document.body.classList.add('unlocked');
-        closeSplash();
-        setTimeout(preloadMonaco, 400);
-        return;
-    }
-
-    if (authInfoEl) {
-        if (githubToken) {
-            authInfoEl.textContent = '';
-            authInfoEl.innerHTML = '<i class="fas fa-check" aria-hidden="true"></i> AUTH KEY: CONNECTED';
-            authInfoEl.className = 'splash-auth-info has-auth';
-        } else {
-            authInfoEl.textContent = '';
-            authInfoEl.innerHTML = '<i class="fas fa-key" aria-hidden="true"></i> NO AUTH KEY — limited API rate (60 req/h).';
-            authInfoEl.className = 'splash-auth-info no-auth';
-        }
-    }
-
-    continueEl.classList.add('visible');
-    continueEl.setAttribute('aria-hidden', 'false');
-
-    const passwordInput = document.getElementById('splash-password');
-    const passwordError = document.getElementById('splash-password-error');
-
-    function tryUnlock() {
-        const value = (passwordInput && passwordInput.value) ? passwordInput.value.trim() : '';
-        if (value === BOOT_PASSWORD) {
-            if (passwordError) passwordError.textContent = '';
-            const logoutInfo = document.getElementById('splash-logout-info');
-            if (logoutInfo) { logoutInfo.className = 'splash-logout-info'; logoutInfo.textContent = ''; }
-            sessionStorage.setItem(UNLOCK_STORAGE_KEY, '1');
-            document.body.classList.add('unlocked');
-            closeSplash();
-            setTimeout(preloadMonaco, 400);
-        } else {
-            if (passwordError) passwordError.textContent = 'Wrong password.';
-            notifyToast('warning', 'Dostęp', 'Nieprawidłowe hasło.', 3500);
-            if (passwordInput) { passwordInput.value = ''; passwordInput.focus(); }
-        }
-    }
-
-    function onKey(e) {
-        if (e.key === 'Enter') tryUnlock();
-    }
-
-    document.addEventListener('keydown', onKey);
-    if (continueBtn) continueBtn.addEventListener('click', tryUnlock);
-    if (passwordInput) passwordInput.focus();
+  });
 }
 
-// Monaco - loader ładany dynamicznie, żeby require był zdefiniowany
-const MONACO_VS = 'https://cdn.jsdelivr.net/gh/s-pro-v/maroco@main/min/vs';
-const MONACO_LOADER = MONACO_VS + '/loader.js';
-const MONACO_LOADER_FALLBACK = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js';
-const MONACO_VS_FALLBACK = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs';
+document.querySelectorAll(".md-pre-wrap .md-tab").forEach(function (tab) {
+  tab.addEventListener("click", function () {
+    var panelId = "md-panel-" + (this.getAttribute("data-panel") || "preview");
+    document.querySelectorAll(".md-pre-wrap .md-tab").forEach(function (t) {
+      t.classList.remove("active");
+    });
+    document.querySelectorAll(".md-pre-wrap .md-panel").forEach(function (p) {
+      p.classList.remove("active");
+    });
+    this.classList.add("active");
+    var panel = document.getElementById(panelId);
+    if (panel) panel.classList.add("active");
+  });
+});
+
+async function startBoot() {
+  const steps = [
+    {
+      label: "Init Kernel ",
+      tail: "v2.77",
+      level: "INFO",
+      log: "Kernel v2.77 initialized",
+    },
+    {
+      label: "Mapping ",
+      tail: "UI",
+      level: "SUCCESS",
+      log: "UI mapping complete",
+    },
+    {
+      label: "Handshake ",
+      tail: "GITHUB",
+      level: "SUCCESS",
+      log: "GITHUB handshake established",
+    },
+    { label: "Sync ", tail: "HUD", level: "SUCCESS", log: "HUD sync ready" },
+    {
+      label: "Load ",
+      tail: "repos",
+      level: "SUCCESS",
+      log: "Repositories loaded",
+    },
+  ];
+  const listEl = document.getElementById("boot-status-list");
+  const progressEl = document.getElementById("progress-fill");
+  const bootLogEl = document.getElementById("boot-log");
+  if (listEl) listEl.innerHTML = "";
+
+  steps.forEach((step, idx) => {
+    const li = document.createElement("li");
+    li.className = "boot-status-item";
+    li.dataset.index = idx;
+    li.innerHTML = `<span class="status-icon"><i class="far fa-circle" aria-hidden="true"></i></span><span class="status-text">${step.label}<span class="boot-status-tail">${step.tail}</span></span>`;
+    if (listEl) listEl.appendChild(li);
+  });
+  const items = listEl ? listEl.querySelectorAll(".boot-status-item") : [];
+
+  let logSeq = 0;
+  function appendBootLogEntry(level, message) {
+    if (!bootLogEl) return;
+    logSeq += 1;
+    const entry = document.createElement("div");
+    entry.className = "boot-log-entry";
+    const tag = `[BOOT ${String(logSeq).padStart(2, "0")}]`;
+    const levelClass = level === "INFO" ? "info" : "success";
+    entry.innerHTML = `
+      <div class="boot-log-head">
+        <span class="boot-log-time">${tag}</span>
+        <span class="boot-log-level ${levelClass}">${level}</span>
+      </div>
+      <div class="boot-log-msg">
+        <span class="boot-log-indent">L</span>
+        <span class="boot-log-text">${message}</span>
+      </div>`;
+    bootLogEl.appendChild(entry);
+    bootLogEl.scrollTop = bootLogEl.scrollHeight;
+  }
+
+  for (let i = 0; i < steps.length; i++) {
+    items.forEach((el, j) => {
+      const icon = el.querySelector(".status-icon i");
+      el.classList.remove("loading", "done");
+      if (j < i) {
+        el.classList.add("done");
+        if (icon) icon.className = "fas fa-check";
+      } else if (j === i) {
+        el.classList.add("loading");
+        if (icon) icon.className = "fas fa-spinner fa-spin";
+      } else {
+        if (icon) icon.className = "far fa-circle";
+      }
+    });
+    if (progressEl)
+      progressEl.style.width = `${((i + 1) / steps.length) * 100}%`;
+    appendBootLogEntry(steps[i].level, steps[i].log);
+    if (i === steps.length - 1) {
+      await fetchRepos();
+    } else {
+      await new Promise((r) => setTimeout(r, 200));
+    }
+  }
+
+  if (items.length > 0) {
+    items[items.length - 1].classList.remove("loading");
+    items[items.length - 1].classList.add("done");
+    const lastIcon = items[items.length - 1].querySelector(".status-icon i");
+    if (lastIcon) lastIcon.className = "fas fa-check";
+  }
+  if (progressEl) progressEl.style.width = "100%";
+  await new Promise((r) => setTimeout(r, 400));
+
+  const continueEl = document.getElementById("splash-continue");
+  const continueBtn = document.getElementById("splash-continue-btn");
+  const authInfoEl = document.getElementById("splash-auth-info");
+
+  function closeSplash() {
+    const splash = document.getElementById("splash-screen");
+    if (!splash) return;
+    splash.style.opacity = "0";
+    splash.style.transition = "opacity 0.4s ease";
+    setTimeout(() => {
+      splash.style.display = "none";
+      document.removeEventListener("keydown", onKey);
+    }, 450);
+  }
+
+  if (sessionStorage.getItem(UNLOCK_STORAGE_KEY) === "1") {
+    document.body.classList.add("unlocked");
+    closeSplash();
+    setTimeout(preloadMonaco, 400);
+    return;
+  }
+
+  if (authInfoEl) {
+    if (githubToken) {
+      authInfoEl.innerHTML =
+        '<i class="fas fa-check" aria-hidden="true"></i> AUTH KEY: CONNECTED';
+      authInfoEl.className = "splash-auth-info has-auth";
+    } else {
+      authInfoEl.innerHTML =
+        '<i class="fas fa-key" aria-hidden="true"></i> NO AUTH KEY — limited API rate (60 req/h).';
+      authInfoEl.className = "splash-auth-info no-auth";
+    }
+  }
+
+  if (continueEl) {
+    continueEl.classList.add("visible");
+    continueEl.setAttribute("aria-hidden", "false");
+  }
+
+  const passwordInput = document.getElementById("splash-password");
+  const passwordError = document.getElementById("splash-password-error");
+
+  function tryUnlock() {
+    const value =
+      passwordInput && passwordInput.value ? passwordInput.value.trim() : "";
+    if (value === BOOT_PASSWORD) {
+      if (passwordError) passwordError.textContent = "";
+      const logoutInfo = document.getElementById("splash-logout-info");
+      if (logoutInfo) {
+        logoutInfo.className = "splash-logout-info";
+        logoutInfo.textContent = "";
+      }
+      sessionStorage.setItem(UNLOCK_STORAGE_KEY, "1");
+      document.body.classList.add("unlocked");
+      closeSplash();
+      setTimeout(preloadMonaco, 400);
+    } else {
+      if (passwordError) passwordError.textContent = "Wrong password.";
+      notifyToast("warning", "Dostęp", "Nieprawidłowe hasło.", 3500);
+      if (passwordInput) {
+        passwordInput.value = "";
+        passwordInput.focus();
+      }
+    }
+  }
+
+  function onKey(e) {
+    if (e.key === "Enter") tryUnlock();
+  }
+
+  document.addEventListener("keydown", onKey);
+  if (continueBtn) continueBtn.addEventListener("click", tryUnlock);
+  if (passwordInput) passwordInput.focus();
+}
+
+const MONACO_VS = "https://cdn.jsdelivr.net/gh/s-pro-v/maroco@main/min/vs";
+const MONACO_LOADER = MONACO_VS + "/loader.js";
+const MONACO_LOADER_FALLBACK =
+  "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js";
+const MONACO_VS_FALLBACK =
+  "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs";
 let monacoReady = false;
 let monacoInitStarted = false;
+
 function loadMonacoLoader(cb) {
-    if (typeof require !== 'undefined') { cb(); return; }
-    const s = document.createElement('script');
-    s.src = MONACO_LOADER;
-    s.onerror = () => {
-        const s2 = document.createElement('script');
-        s2.src = MONACO_LOADER_FALLBACK;
-        s2.onload = () => { require.config({ paths: { vs: MONACO_VS_FALLBACK } }); monacoReady = true; cb(); };
-        s2.onerror = () => cb();
-        document.head.appendChild(s2);
+  if (typeof require !== "undefined") {
+    cb();
+    return;
+  }
+  const s = document.createElement("script");
+  s.src = MONACO_LOADER;
+  s.onerror = () => {
+    const s2 = document.createElement("script");
+    s2.src = MONACO_LOADER_FALLBACK;
+    s2.onload = () => {
+      require.config({ paths: { vs: MONACO_VS_FALLBACK } });
+      monacoReady = true;
+      cb();
     };
-    s.onload = () => {
-        if (typeof require !== 'undefined') {
-            require.config({ paths: { vs: MONACO_VS } });
-            monacoReady = true;
-        }
-        cb();
-    };
-    document.head.appendChild(s);
+    s2.onerror = () => cb();
+    document.head.appendChild(s2);
+  };
+  s.onload = () => {
+    if (typeof require !== "undefined") {
+      require.config({ paths: { vs: MONACO_VS } });
+      monacoReady = true;
+    }
+    cb();
+  };
+  document.head.appendChild(s);
 }
+
 function initMonaco() {
-    if (editor || monacoInitStarted) return;
-    monacoInitStarted = true;
-    const container = document.getElementById('monaco-container');
-    const loadingEl = document.getElementById('monaco-loading');
-    if (loadingEl) loadingEl.classList.remove('hidden');
-    loadMonacoLoader(() => {
-        if (typeof require === 'undefined') {
-            monacoInitStarted = false;
-            if (loadingEl) loadingEl.classList.add('hidden');
-            notifyToast('warning', 'Monaco', 'Nie udało się załadować silnika edytora.', 7000);
-            return;
-        }
-        require(['vs/editor/editor.main'], () => {
-            if (typeof defineMonacoThemes === 'function') defineMonacoThemes();
-            const monacoTheme = currentTheme === 'dark' ? 'terminal-dark' : 'terminal-light';
-            let base;
-            if (typeof window.MonacoEditorSettings !== 'undefined' && typeof window.MonacoEditorSettings.getEditorOptions === 'function') {
-                base = window.MonacoEditorSettings.getEditorOptions();
-            } else {
-                const saved = getMonacoSettings();
-                base = {
-                    fontFamily: saved.fontFamily || 'JetBrains Mono',
-                    fontSize: saved.fontSize || 12,
-                    lineHeight: saved.lineHeight || 0,
-                    tabSize: saved.tabSize || 4,
-                    wordWrap: (saved.wordWrap === 'on') ? 'on' : 'off',
-                    minimap: { enabled: saved.minimap !== false },
-                    cursorStyle: saved.cursorStyle || 'line-thin',
-                    cursorBlinking: saved.cursorBlinking || 'expand',
-                    cursorSmoothCaretAnimation: saved.cursorSmoothCaretAnimation !== false,
-                    autoClosingBrackets: saved.autoClosingBrackets || 'always',
-                    autoClosingQuotes: saved.autoClosingQuotes || 'always',
-                    bracketPairColorization: saved.bracketPairColorization !== false,
-                    folding: saved.folding !== false,
-                    insertSpaces: saved.insertSpaces === true,
-                    autoIndent: saved.autoIndent || 'full',
-                    formatOnPaste: saved.formatOnPaste !== false,
-                    formatOnType: saved.formatOnType !== false,
-                    matchBrackets: saved.matchBrackets || 'always',
-                    renderWhitespace: saved.renderWhitespace || 'selection',
-                    renderIndentGuides: saved.renderIndentGuides !== false,
-                    scrollBeyondLastLine: saved.scrollBeyondLastLine !== false,
-                    mouseWheelZoom: saved.mouseWheelZoom !== false,
-                    occurrencesHighlight: saved.occurrencesHighlight !== false,
-                    selectionHighlight: saved.selectionHighlight !== false,
-                    renderLineHighlight: saved.renderLineHighlight || 'line',
-                    colorDecorators: saved.colorDecorators !== false,
-                    links: saved.links !== false,
-                    codeLens: saved.codeLens === true,
-                    dragAndDrop: saved.dragAndDrop !== false,
-                    emptySelectionClipboard: saved.emptySelectionClipboard !== false,
-                    copyWithSyntaxHighlighting: saved.copyWithSyntaxHighlighting !== false,
-                    smoothScrolling: saved.smoothScrolling !== false,
-                    roundedSelection: saved.roundedSelection !== false,
-                    multiCursorModifier: saved.multiCursorModifier || 'alt',
-                    showFoldingControls: saved.showFoldingControls || 'mouseover',
-                    suggestOnTriggerCharacters: saved.suggestOnTriggerCharacters !== false,
-                    acceptSuggestionOnEnter: saved.acceptSuggestionOnEnter || 'on',
-                    quickSuggestionsDelay: saved.quickSuggestionsDelay !== undefined ? saved.quickSuggestionsDelay : 100
-                };
-            }
-            base.theme = monacoTheme;
-            base.automaticLayout = true;
-            base.readOnly = true;
-            editor = monaco.editor.create(container, base);
-            if (typeof window.MonacoEditorSettings !== 'undefined' && typeof window.MonacoEditorSettings.setEditors === 'function') {
-                window.MonacoEditorSettings.setEditors(editor, null);
-            }
-            if (loadingEl) loadingEl.classList.add('hidden');
-        });
+  if (editor || monacoInitStarted) return;
+  monacoInitStarted = true;
+  const container = document.getElementById("monaco-container");
+  const loadingEl = document.getElementById("monaco-loading");
+  if (loadingEl) loadingEl.classList.remove("hidden");
+  loadMonacoLoader(() => {
+    if (typeof require === "undefined") {
+      monacoInitStarted = false;
+      if (loadingEl) loadingEl.classList.add("hidden");
+      notifyToast(
+        "warning",
+        "Monaco",
+        "Nie udało się załadować silnika edytora.",
+        7000,
+      );
+      return;
+    }
+    require(["vs/editor/editor.main"], () => {
+      if (typeof defineMonacoThemes === "function") defineMonacoThemes();
+      const monacoTheme =
+        currentTheme === "dark" ? "terminal-dark" : "terminal-light";
+      let base;
+      if (
+        typeof window.MonacoEditorSettings !== "undefined" &&
+        typeof window.MonacoEditorSettings.getEditorOptions === "function"
+      ) {
+        base = window.MonacoEditorSettings.getEditorOptions();
+      } else {
+        const saved = getMonacoSettings();
+        base = {
+          fontFamily: saved.fontFamily || "JetBrains Mono",
+          fontSize: saved.fontSize || 12,
+          lineHeight: saved.lineHeight || 0,
+          tabSize: saved.tabSize || 4,
+          wordWrap: saved.wordWrap === "on" ? "on" : "off",
+          minimap: { enabled: saved.minimap !== false },
+          cursorStyle: saved.cursorStyle || "line-thin",
+          cursorBlinking: saved.cursorBlinking || "expand",
+          cursorSmoothCaretAnimation:
+            saved.cursorSmoothCaretAnimation !== false,
+          autoClosingBrackets: saved.autoClosingBrackets || "always",
+          autoClosingQuotes: saved.autoClosingQuotes || "always",
+          bracketPairColorization: saved.bracketPairColorization !== false,
+          folding: saved.folding !== false,
+          insertSpaces: saved.insertSpaces === true,
+          autoIndent: saved.autoIndent || "full",
+          formatOnPaste: saved.formatOnPaste !== false,
+          formatOnType: saved.formatOnType !== false,
+          matchBrackets: saved.matchBrackets || "always",
+          renderWhitespace: saved.renderWhitespace || "selection",
+          renderIndentGuides: saved.renderIndentGuides !== false,
+          scrollBeyondLastLine: saved.scrollBeyondLastLine !== false,
+          mouseWheelZoom: saved.mouseWheelZoom !== false,
+          occurrencesHighlight: saved.occurrencesHighlight !== false,
+          selectionHighlight: saved.selectionHighlight !== false,
+          renderLineHighlight: saved.renderLineHighlight || "line",
+          colorDecorators: saved.colorDecorators !== false,
+          links: saved.links !== false,
+          codeLens: saved.codeLens === true,
+          dragAndDrop: saved.dragAndDrop !== false,
+          emptySelectionClipboard: saved.emptySelectionClipboard !== false,
+          copyWithSyntaxHighlighting:
+            saved.copyWithSyntaxHighlighting !== false,
+          smoothScrolling: saved.smoothScrolling !== false,
+          roundedSelection: saved.roundedSelection !== false,
+          multiCursorModifier: saved.multiCursorModifier || "alt",
+          showFoldingControls: saved.showFoldingControls || "mouseover",
+          suggestOnTriggerCharacters:
+            saved.suggestOnTriggerCharacters !== false,
+          acceptSuggestionOnEnter: saved.acceptSuggestionOnEnter || "on",
+          quickSuggestionsDelay:
+            saved.quickSuggestionsDelay !== undefined
+              ? saved.quickSuggestionsDelay
+              : 100,
+        };
+      }
+      base.theme = monacoTheme;
+      base.automaticLayout = true;
+      base.readOnly = true;
+      editor = monaco.editor.create(container, base);
+      if (
+        typeof window.MonacoEditorSettings !== "undefined" &&
+        typeof window.MonacoEditorSettings.setEditors === "function"
+      ) {
+        window.MonacoEditorSettings.setEditors(editor, null);
+      }
+      if (loadingEl) loadingEl.classList.add("hidden");
     });
+  });
 }
 
 function preloadMonaco() {
-    if (!editor && !monacoInitStarted) setTimeout(() => initMonaco(), 0);
+  if (!editor && !monacoInitStarted) setTimeout(() => initMonaco(), 0);
 }
 
-// Controls – zmiana motywu bez animacji (theme-switching wyłącza transitiony, potem je przywracamy)
-document.getElementById('theme-toggle').addEventListener('click', () => {
+const themeToggleEl = document.getElementById("theme-toggle");
+if (themeToggleEl) {
+  themeToggleEl.addEventListener("click", () => {
     const root = document.documentElement;
-    root.classList.add('theme-switching');
-    currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    root.setAttribute('theme', currentTheme);
-    if (editor) monaco.editor.setTheme(currentTheme === 'dark' ? 'terminal-dark' : 'terminal-light');
-    requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-            root.classList.remove('theme-switching');
-        });
-    });
-});
-
-document.getElementById('btn-logout').addEventListener('click', () => {
-    notifyToast('info', 'Sesja', 'Wylogowano. Wprowadź hasło, aby ponownie wejść.', 4500);
-    sessionStorage.removeItem(UNLOCK_STORAGE_KEY);
-    document.body.classList.remove('unlocked');
-    const splash = document.getElementById('splash-screen');
-    splash.style.display = 'flex';
-    splash.style.opacity = '1';
-    splash.style.transition = 'opacity 0.4s ease';
-    const logoutInfo = document.getElementById('splash-logout-info');
-    if (logoutInfo) {
-        logoutInfo.textContent = '';
-        logoutInfo.innerHTML = '<i class="fas fa-info-circle" aria-hidden="true"></i> Wylogowano. Wprowadź hasło, aby ponownie wejść.';
-        logoutInfo.className = 'splash-logout-info visible';
+    root.classList.add("theme-switching");
+    currentTheme = currentTheme === "dark" ? "light" : "dark";
+    root.setAttribute("theme", currentTheme);
+    if (editor) {
+      monaco.editor.setTheme(
+        currentTheme === "dark" ? "terminal-dark" : "terminal-light",
+      );
     }
-    const pwd = document.getElementById('splash-password');
-    if (pwd) { pwd.value = ''; pwd.focus(); }
-    const err = document.getElementById('splash-password-error');
-    if (err) err.textContent = '';
-});
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        root.classList.remove("theme-switching");
+      });
+    });
+  });
+}
 
-const authPanel = document.getElementById('auth-panel');
-const ghTokenInput = document.getElementById('gh-token');
-const keyToggleBtn = document.getElementById('key-toggle');
+const btnLogoutEl = document.getElementById("btn-logout");
+if (btnLogoutEl) {
+  btnLogoutEl.addEventListener("click", () => {
+    notifyToast(
+      "info",
+      "Sesja",
+      "Wylogowano. Wprowadź hasło, aby ponownie wejść.",
+      4500,
+    );
+    sessionStorage.removeItem(UNLOCK_STORAGE_KEY);
+    document.body.classList.remove("unlocked");
+    const splash = document.getElementById("splash-screen");
+    if (splash) {
+      splash.style.display = "flex";
+      splash.style.opacity = "1";
+      splash.style.transition = "opacity 0.4s ease";
+    }
+    const logoutInfo = document.getElementById("splash-logout-info");
+    if (logoutInfo) {
+      logoutInfo.innerHTML =
+        '<i class="fas fa-info-circle" aria-hidden="true"></i> Wylogowano. Wprowadź hasło, aby ponownie wejść.';
+      logoutInfo.className = "splash-logout-info visible";
+    }
+    const pwd = document.getElementById("splash-password");
+    if (pwd) {
+      pwd.value = "";
+      pwd.focus();
+    }
+    const err = document.getElementById("splash-password-error");
+    if (err) err.textContent = "";
+  });
+}
+
+const authPanel = document.getElementById("auth-panel");
+const ghTokenInput = document.getElementById("gh-token");
+const keyToggleBtn = document.getElementById("key-toggle");
+
 const closeAuthModal = () => {
-    authPanel.classList.remove('active');
-    authPanel.setAttribute('aria-hidden', 'true');
-    keyToggleBtn.focus();
+  if (authPanel) {
+    authPanel.classList.remove("active");
+    authPanel.setAttribute("aria-hidden", "true");
+  }
+  if (keyToggleBtn) keyToggleBtn.focus();
 };
-document.getElementById('key-toggle').addEventListener('click', () => {
-    const isOpening = !authPanel.classList.contains('active');
-    authPanel.classList.toggle('active');
-    authPanel.setAttribute('aria-hidden', authPanel.classList.contains('active') ? 'false' : 'true');
-    if (isOpening) setTimeout(() => ghTokenInput.focus(), 50);
-});
-document.getElementById('auth-modal-backdrop').addEventListener('click', closeAuthModal);
-document.getElementById('auth-modal-close').addEventListener('click', closeAuthModal);
 
-document.getElementById('apply-token').addEventListener('click', () => {
-    githubToken = document.getElementById('gh-token').value.trim();
-    saveAuth(githubToken);
-    const authIconClass = githubToken ? 'fas fa-check' : 'far fa-circle';
-    document.getElementById('auth-status').innerHTML = `<i class="${authIconClass} btn-icon" aria-hidden="true"></i> AUTH: ${githubToken ? 'YES' : 'NO'}`;
-    document.getElementById('auth-status').style.color = githubToken ? 'var(--success-color)' : 'var(--danger-color)';
-    document.getElementById('gh-token').value = '';
+if (keyToggleBtn && authPanel) {
+  keyToggleBtn.addEventListener("click", () => {
+    const isOpening = !authPanel.classList.contains("active");
+    authPanel.classList.toggle("active");
+    authPanel.setAttribute(
+      "aria-hidden",
+      authPanel.classList.contains("active") ? "false" : "true",
+    );
+    if (isOpening && ghTokenInput) setTimeout(() => ghTokenInput.focus(), 50);
+  });
+}
+
+const authModalBackdrop = document.getElementById("auth-modal-backdrop");
+if (authModalBackdrop)
+  authModalBackdrop.addEventListener("click", closeAuthModal);
+
+const authModalClose = document.getElementById("auth-modal-close");
+if (authModalClose) authModalClose.addEventListener("click", closeAuthModal);
+
+const applyTokenBtn = document.getElementById("apply-token");
+if (applyTokenBtn) {
+  applyTokenBtn.addEventListener("click", async () => {
+    const pwdValue = ghTokenInput ? ghTokenInput.value.trim() : "";
+    const KEY =
+      String.fromCharCode(119) +
+      String.fromCharCode(53) +
+      String.fromCharCode(103);
+
+    if (pwdValue !== KEY) {
+      notifyToast("warning", "AUTH", "Nieprawidłowe hasło dostępu.", 3500);
+      if (ghTokenInput) {
+        ghTokenInput.value = "";
+        ghTokenInput.focus();
+      }
+      return;
+    }
+
+    applyTokenBtn.disabled = true;
+    applyTokenBtn.innerHTML =
+      '<i class="fas fa-spinner fa-spin btn-icon" aria-hidden="true"></i> SYNC...';
+
+    try {
+      const res = await fetch(
+        "https://raw.githubusercontent.com/s-pro-v/json-lista/refs/heads/main/dev/auth.json",
+        {
+          cache: "no-store",
+        },
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const data = await res.json();
+      const cipherText = Array.isArray(data)
+        ? data[0]?.sys_state
+        : data?.sys_state;
+
+      if (!cipherText) {
+        throw new Error("Brak pola sys_state w pliku auth.json");
+      }
+
+      const binaryString = atob(cipherText.trim());
+      let decodedToken = "";
+      for (let i = 0; i < binaryString.length; i++) {
+        decodedToken += String.fromCharCode(
+          binaryString.charCodeAt(i) ^ KEY.charCodeAt(i % KEY.length),
+        );
+      }
+
+      githubToken = decodedToken.trim();
+      saveAuth(githubToken);
+
+      const authStatusEl = document.getElementById("auth-status");
+      if (authStatusEl) {
+        authStatusEl.innerHTML =
+          '<i class="fas fa-check btn-icon" aria-hidden="true"></i> AUTH: YES';
+        authStatusEl.style.color = "var(--success-color)";
+      }
+
+      if (ghTokenInput) ghTokenInput.value = "";
+      closeAuthModal();
+      notifyToast(
+        "success",
+        "AUTH",
+        "Token pobrany, odszyfrowany i przypisany.",
+        3500,
+      );
+      await fetchRepos();
+    } catch (err) {
+      notifyToast("critical", "AUTH", `Błąd: ${err.message}`, 5000);
+    } finally {
+      applyTokenBtn.disabled = false;
+      applyTokenBtn.innerHTML =
+        '<i class="fas fa-plug btn-icon" aria-hidden="true"></i> CONNECT';
+    }
+  });
+}
+
+const clearTokenBtn = document.getElementById("clear-token");
+if (clearTokenBtn) {
+  clearTokenBtn.addEventListener("click", () => {
+    githubToken = "";
+    saveAuth("");
+    if (ghTokenInput) ghTokenInput.value = "";
+    const authStatus = document.getElementById("auth-status");
+    if (authStatus) {
+      authStatus.innerHTML =
+        '<i class="far fa-circle btn-icon" aria-hidden="true"></i> AUTH: NO';
+      authStatus.style.color = "var(--danger-color)";
+    }
     closeAuthModal();
     fetchRepos();
     notifyToast(
-        githubToken ? 'success' : 'warning',
-        'AUTH',
-        githubToken ? 'Token zapisany. Wyższy limit API GitHub.' : 'Token usunięty z tej przeglądarki.',
-        4500
+      "info",
+      "AUTH",
+      "Token odłączony. Limit API: tryb publiczny.",
+      4500,
     );
-});
-
-document.getElementById('clear-token').addEventListener('click', () => {
-    githubToken = '';
-    saveAuth('');
-    document.getElementById('gh-token').value = '';
-    document.getElementById('auth-status').innerHTML = '<i class="far fa-circle btn-icon" aria-hidden="true"></i> AUTH: NO';
-    document.getElementById('auth-status').style.color = 'var(--danger-color)';
-    closeAuthModal();
-    fetchRepos();
-    notifyToast('info', 'AUTH', 'Token odłączony. Limit API: tryb publiczny.', 4500);
-});
+  });
+}
 
 const closeBrowser = () => {
-    if (typeof window.MonacoEditorSettings !== 'undefined' && window.MonacoEditorSettings.closeSettings) {
-        window.MonacoEditorSettings.closeSettings();
-    }
-    if (editor) {
-        const model = editor.getModel();
-        if (model) model.dispose();
-        editor.setModel(monaco.editor.createModel('', 'plaintext'));
-    }
-    var preWrap = document.getElementById('md-pre-wrap');
-    if (preWrap) {
-        preWrap.classList.remove('visible');
-        preWrap.setAttribute('aria-hidden', 'true');
-        var p = document.getElementById('md-pre-view');
-        if (p) p.textContent = '';
-        var ph = document.getElementById('md-pre-view-html');
-        if (ph) ph.innerHTML = '';
-    }
-    document.getElementById('code-browser').classList.remove('active');
-    document.body.style.overflow = 'auto';
+  if (
+    typeof window.MonacoEditorSettings !== "undefined" &&
+    window.MonacoEditorSettings.closeSettings
+  ) {
+    window.MonacoEditorSettings.closeSettings();
+  }
+  if (editor) {
+    const model = editor.getModel();
+    if (model) model.dispose();
+    editor.setModel(monaco.editor.createModel("", "plaintext"));
+  }
+  var preWrap = document.getElementById("md-pre-wrap");
+  if (preWrap) {
+    preWrap.classList.remove("visible");
+    preWrap.setAttribute("aria-hidden", "true");
+    var p = document.getElementById("md-pre-view");
+    if (p) p.textContent = "";
+    var ph = document.getElementById("md-pre-view-html");
+    if (ph) ph.innerHTML = "";
+  }
+  const codeBrowser = document.getElementById("code-browser");
+  if (codeBrowser) codeBrowser.classList.remove("active");
+  document.body.style.overflow = "auto";
 };
-window.addEventListener('keydown', e => {
-    if (e.key !== 'Escape') return;
-    var sb = document.getElementById('settingsSidebar');
-    if (sb && sb.classList.contains('active') && window.MonacoEditorSettings && window.MonacoEditorSettings.closeSettings) {
-        window.MonacoEditorSettings.closeSettings();
-        return;
-    }
-    if (authPanel.classList.contains('active')) closeAuthModal();
-    else closeBrowser();
+
+window.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  var sb = document.getElementById("settingsSidebar");
+  if (
+    sb &&
+    sb.classList.contains("active") &&
+    window.MonacoEditorSettings &&
+    window.MonacoEditorSettings.closeSettings
+  ) {
+    window.MonacoEditorSettings.closeSettings();
+    return;
+  }
+  if (authPanel && authPanel.classList.contains("active")) closeAuthModal();
+  else closeBrowser();
 });
 
-const CDN_BRANCH = 'main';
+const CDN_BRANCH = "main";
 function getCdnBase() {
-    return currentRepo ? `https://cdn.jsdelivr.net/gh/${USERNAME}/${currentRepo}@${CDN_BRANCH}/` : '';
+  return currentRepo
+    ? `https://cdn.jsdelivr.net/gh/${USERNAME}/${currentRepo}@${CDN_BRANCH}/`
+    : "";
 }
+
 function setCdnUrl(path) {
-    const base = getCdnBase();
-    const url = path ? base + path : base;
-    const el = document.getElementById('cdn-url');
-    if (el) el.value = url;
+  const base = getCdnBase();
+  const url = path ? base + path : base;
+  const el = document.getElementById("cdn-url");
+  if (el) el.value = url;
 }
-document.getElementById('cdn-copy').addEventListener('click', () => {
-    const url = document.getElementById('cdn-url').value;
+
+const cdnCopyBtn = document.getElementById("cdn-copy");
+if (cdnCopyBtn) {
+  cdnCopyBtn.addEventListener("click", () => {
+    const urlEl = document.getElementById("cdn-url");
+    const url = urlEl ? urlEl.value : "";
     if (url) {
-        navigator.clipboard.writeText(url).then(() => {
-            const btn = document.getElementById('cdn-copy');
-            const t = btn.textContent; btn.textContent = 'OK'; setTimeout(() => { btn.textContent = t; }, 800);
-            notifyToast('success', 'Schowek', 'URL skopiowany do schowka.', 2500);
-        }).catch(() => {
-            notifyToast('warning', 'Schowek', 'Nie udało się skopiować (uprawnienia przeglądarki).', 4500);
+      navigator.clipboard
+        .writeText(url)
+        .then(() => {
+          const t = cdnCopyBtn.textContent;
+          cdnCopyBtn.textContent = "OK";
+          setTimeout(() => {
+            cdnCopyBtn.textContent = t;
+          }, 800);
+          notifyToast("success", "Schowek", "URL skopiowany do schowka.", 2500);
+        })
+        .catch(() => {
+          notifyToast(
+            "warning",
+            "Schowek",
+            "Nie udało się skopiować (uprawnienia przeglądarki).",
+            4500,
+          );
         });
     }
-});
-
-async function openBrowser(name) {
-    currentRepo = name; currentOpenFilePath = '';
-    document.getElementById('current-repo-name').textContent = name.toUpperCase();
-    setCdnUrl('');
-    document.getElementById('code-browser').classList.add('active');
-    document.body.style.overflow = 'hidden';
-    if (!editor) initMonaco();
-    fetchFiles('');
+  });
 }
 
-const ICONIFY_BASE = 'https://api.iconify.design';
+async function openBrowser(name) {
+  currentRepo = name;
+  currentOpenFilePath = "";
+  const repoNameEl = document.getElementById("current-repo-name");
+  if (repoNameEl) repoNameEl.textContent = name.toUpperCase();
+  setCdnUrl("");
+  const codeBrowser = document.getElementById("code-browser");
+  if (codeBrowser) codeBrowser.classList.add("active");
+  document.body.style.overflow = "hidden";
+  if (!editor) initMonaco();
+  fetchFiles("");
+}
+
+const ICONIFY_BASE = "https://api.iconify.design";
 const FILE_ICONS_ICONIFY = {
-    css: 'vscode-icons:file-type-css2', scss: 'vscode-icons:file-type-scss', sass: 'vscode-icons:file-type-sass', less: 'vscode-icons:file-type-less',
-    html: 'vscode-icons:file-type-html', htm: 'vscode-icons:file-type-html', xhtml: 'vscode-icons:file-type-html',
-    json: 'vscode-icons:file-type-light-json',
-    js: 'material-icon-theme:javascript', mjs: 'material-icon-theme:javascript', cjs: 'material-icon-theme:javascript',
-    ts: 'vscode-icons:file-type-typescript', tsx: 'vscode-icons:file-type-reactts', jsx: 'vscode-icons:file-type-reactjs',
-    py: 'vscode-icons:file-type-python', pyw: 'vscode-icons:file-type-python',
-    md: 'vscode-icons:file-type-markdown', markdown: 'vscode-icons:file-type-markdown',
-    tex: 'material-icon-theme:latexmk', latex: 'material-icon-theme:latexmk',
-    xml: 'vscode-icons:file-type-xml', yaml: 'vscode-icons:file-type-yaml', yml: 'vscode-icons:file-type-yaml',
-    svg: 'vscode-icons:file-type-svg', png: 'vscode-icons:file-type-image', jpg: 'vscode-icons:file-type-image', jpeg: 'vscode-icons:file-type-image', gif: 'vscode-icons:file-type-image', webp: 'vscode-icons:file-type-image', ico: 'vscode-icons:file-type-image',
-    pdf: 'vscode-icons:file-type-pdf2',
-    zip: 'vscode-icons:file-type-zip', tar: 'vscode-icons:file-type-tar', gz: 'vscode-icons:file-type-gzip', rar: 'vscode-icons:file-type-rar',
+  css: "vscode-icons:file-type-css2",
+  scss: "vscode-icons:file-type-scss",
+  sass: "vscode-icons:file-type-sass",
+  less: "vscode-icons:file-type-less",
+  html: "vscode-icons:file-type-html",
+  htm: "vscode-icons:file-type-html",
+  xhtml: "vscode-icons:file-type-html",
+  json: "vscode-icons:file-type-light-json",
+  js: "material-icon-theme:javascript",
+  mjs: "material-icon-theme:javascript",
+  cjs: "material-icon-theme:javascript",
+  ts: "vscode-icons:file-type-typescript",
+  tsx: "vscode-icons:file-type-reactts",
+  jsx: "vscode-icons:file-type-reactjs",
+  py: "vscode-icons:file-type-python",
+  pyw: "vscode-icons:file-type-python",
+  md: "vscode-icons:file-type-markdown",
+  markdown: "vscode-icons:file-type-markdown",
+  tex: "material-icon-theme:latexmk",
+  latex: "material-icon-theme:latexmk",
+  xml: "vscode-icons:file-type-xml",
+  yaml: "vscode-icons:file-type-yaml",
+  yml: "vscode-icons:file-type-yaml",
+  svg: "vscode-icons:file-type-svg",
+  png: "vscode-icons:file-type-image",
+  jpg: "vscode-icons:file-type-image",
+  jpeg: "vscode-icons:file-type-image",
+  gif: "vscode-icons:file-type-image",
+  webp: "vscode-icons:file-type-image",
+  ico: "vscode-icons:file-type-image",
+  pdf: "vscode-icons:file-type-pdf2",
+  zip: "vscode-icons:file-type-zip",
+  tar: "vscode-icons:file-type-tar",
+  gz: "vscode-icons:file-type-gzip",
+  rar: "vscode-icons:file-type-rar",
 };
+
 function getFileIcon(name, isDir) {
-    if (isDir) return { type: 'fa', icon: 'fa-folder', color: 'icon-highlight' };
-    const ext = name.split('.').pop()?.toLowerCase() || '';
-    const iconifyId = FILE_ICONS_ICONIFY[ext];
-    if (iconifyId) return { type: 'iconify', url: `${ICONIFY_BASE}/${iconifyId}.svg` };
-    return { type: 'fa', icon: 'fa-file', color: 'icon-muted' };
+  if (isDir) return { type: "fa", icon: "fa-folder", color: "icon-highlight" };
+  const ext = name.split(".").pop()?.toLowerCase() || "";
+  const iconifyId = FILE_ICONS_ICONIFY[ext];
+  if (iconifyId)
+    return { type: "iconify", url: `${ICONIFY_BASE}/${iconifyId}.svg` };
+  return { type: "fa", icon: "fa-file", color: "icon-muted" };
 }
 
 function encodePath(p) {
-    if (!p) return '';
-    return p.split('/').map(encodeURIComponent).join('/');
+  if (!p) return "";
+  return p.split("/").map(encodeURIComponent).join("/");
 }
 
-/** Lista plików w eksploratorze: `#file-tree > .conter` (tworzona przy braku). */
 function getFileTreeListEl() {
-    const root = document.getElementById('file-tree');
-    if (!root) return null;
-    let list = root.querySelector(':scope > .conter');
-    if (!list) {
-        list = document.createElement('div');
-        list.className = 'conter';
-        root.appendChild(list);
-    }
-    return list;
+  const root = document.getElementById("file-tree");
+  if (!root) return null;
+  let list = root.querySelector(":scope > .conter");
+  if (!list) {
+    list = document.createElement("div");
+    list.className = "conter";
+    root.appendChild(list);
+  }
+  return list;
 }
 
 async function fetchFiles(path) {
-    const list = getFileTreeListEl();
-    if (!list) return;
-    list.innerHTML = '<div class="explorer-item">FETCHING...</div>';
-    try {
-        const url = `https://api.github.com/repos/${USERNAME}/${currentRepo}/contents/${encodePath(path)}`;
-        const res = await fetch(url, { headers: getHeaders() });
-        const data = await res.json();
-        list.innerHTML = '';
-        if (!res.ok) {
-            const msg = (data && data.message) ? data.message : `HTTP ${res.status}`;
-            list.innerHTML = `<div class="explorer-item" style="color:var(--danger-color)">${msg}</div>`;
-            notifyToast('critical', 'Eksplorator plików', msg, 6500);
-            return;
-        }
-        const files = Array.isArray(data) ? data : [data];
-        if (path) {
-            const b = document.createElement('div'); b.className = 'explorer-item folder';
-            b.innerHTML = '<i class="fas fa-arrow-left btn-icon icon-muted" aria-hidden="true"></i> .. [BACK]';
-            b.onclick = () => fetchFiles(path.split('/').slice(0, -1).join('/'));
-            list.appendChild(b);
-        }
-        files.sort((a, b) => (b.type === 'dir') - (a.type === 'dir')).forEach(f => {
-            const isDir = f.type === 'dir';
-            const iconInfo = getFileIcon(f.name, isDir);
-            const extClass = !isDir && f.name.includes('.') ? ` explorer-item--${f.name.split('.').pop().toLowerCase()}` : '';
-            const isActive = !isDir && f.path === currentOpenFilePath;
-            const el = document.createElement('div');
-            el.className = `explorer-item ${isDir ? 'folder' : 'file'}${extClass}${isActive ? ' active' : ''}`;
-            el.dataset.path = f.path;
-            const iconHtml = iconInfo.type === 'iconify'
-                ? `<img src="${iconInfo.url}" class="explorer-file-icon" alt="" loading="lazy" decoding="async">`
-                : `<i class="fas ${iconInfo.icon} btn-icon ${iconInfo.color}" aria-hidden="true"></i>`;
-            el.innerHTML = `${iconHtml} ${f.name}`;
-            el.onclick = () => {
-                if (isDir) fetchFiles(f.path);
-                else {
-                    loadContent(f);
-                    list.querySelectorAll('.explorer-item').forEach(i => i.classList.remove('active'));
-                    el.classList.add('active');
-                }
-            };
-            list.appendChild(el);
-        });
-    } catch (e) {
-        const msg = e.message || 'ERR';
-        list.innerHTML = `<div class="explorer-item" style="color:var(--danger-color)">${msg}</div>`;
-        notifyToast('critical', 'Eksplorator plików', msg, 6500);
+  const list = getFileTreeListEl();
+  if (!list) return;
+  list.innerHTML = '<div class="explorer-item">FETCHING...</div>';
+  try {
+    const url = `https://api.github.com/repos/${USERNAME}/${currentRepo}/contents/${encodePath(path)}`;
+    const res = await fetch(url, { headers: getHeaders() });
+    const data = await res.json();
+    list.innerHTML = "";
+    if (!res.ok) {
+      const msg = data && data.message ? data.message : `HTTP ${res.status}`;
+      list.innerHTML = `<div class="explorer-item" style="color:var(--danger-color)">${msg}</div>`;
+      notifyToast("critical", "Eksplorator plików", msg, 6500);
+      return;
     }
+    const files = Array.isArray(data) ? data : [data];
+    if (path) {
+      const b = document.createElement("div");
+      b.className = "explorer-item folder";
+      b.innerHTML =
+        '<i class="fas fa-arrow-left btn-icon icon-muted" aria-hidden="true"></i> .. [BACK]';
+      b.onclick = () => fetchFiles(path.split("/").slice(0, -1).join("/"));
+      list.appendChild(b);
+    }
+    files
+      .sort((a, b) => (b.type === "dir") - (a.type === "dir"))
+      .forEach((f) => {
+        const isDir = f.type === "dir";
+        const iconInfo = getFileIcon(f.name, isDir);
+        const extClass =
+          !isDir && f.name.includes(".")
+            ? ` explorer-item--${f.name.split(".").pop().toLowerCase()}`
+            : "";
+        const isActive = !isDir && f.path === currentOpenFilePath;
+        const el = document.createElement("div");
+        el.className = `explorer-item ${isDir ? "folder" : "file"}${extClass}${isActive ? " active" : ""}`;
+        el.dataset.path = f.path;
+        const iconHtml =
+          iconInfo.type === "iconify"
+            ? `<img src="${iconInfo.url}" class="explorer-file-icon" alt="" loading="lazy" decoding="async">`
+            : `<i class="fas ${iconInfo.icon} btn-icon ${iconInfo.color}" aria-hidden="true"></i>`;
+        el.innerHTML = `${iconHtml} ${f.name}`;
+        el.onclick = () => {
+          if (isDir) fetchFiles(f.path);
+          else {
+            loadContent(f);
+            list
+              .querySelectorAll(".explorer-item")
+              .forEach((i) => i.classList.remove("active"));
+            el.classList.add("active");
+          }
+        };
+        list.appendChild(el);
+      });
+  } catch (e) {
+    const msg = e.message || "ERR";
+    list.innerHTML = `<div class="explorer-item" style="color:var(--danger-color)">${msg}</div>`;
+    notifyToast("critical", "Eksplorator plików", msg, 6500);
+  }
 }
 
 const LANG_MAP = {
-    js: 'javascript', mjs: 'javascript', cjs: 'javascript', ts: 'typescript', tsx: 'typescript', jsx: 'javascript',
-    py: 'python', pyw: 'python', html: 'html', htm: 'html', css: 'css', scss: 'scss', less: 'less', json: 'json',
-    md: 'markdown', markdown: 'markdown', yaml: 'yaml', yml: 'yaml', xml: 'xml', svg: 'xml',
-    sh: 'shell', bash: 'shell', zsh: 'shell', txt: 'plaintext'
+  js: "javascript",
+  mjs: "javascript",
+  cjs: "javascript",
+  ts: "typescript",
+  tsx: "typescript",
+  jsx: "javascript",
+  py: "python",
+  pyw: "python",
+  html: "html",
+  htm: "html",
+  css: "css",
+  scss: "scss",
+  less: "less",
+  json: "json",
+  md: "markdown",
+  markdown: "markdown",
+  yaml: "yaml",
+  yml: "yaml",
+  xml: "xml",
+  svg: "xml",
+  sh: "shell",
+  bash: "shell",
+  zsh: "shell",
+  txt: "plaintext",
 };
 
-function base64ToUtf8(base64) {
-    const bin = atob((base64 || '').replace(/\n/g, ''));
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return new TextDecoder().decode(bytes);
-}
-
 async function loadContent(file) {
-    currentOpenFilePath = file.path;
-    setCdnUrl(file.path);
-    const tree = document.getElementById('file-tree');
-    if (!tree) return;
-    tree.querySelectorAll('.explorer-item').forEach(i => i.classList.remove('active'));
-    const safePath = (file.path || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-    const activeEl = tree.querySelector(`.explorer-item[data-path="${safePath}"]`);
-    if (activeEl) activeEl.classList.add('active');
-    try {
-        const res = await fetch(file.url, { headers: getHeaders() });
-        const data = await res.json();
-        if (!res.ok) {
-            const msg = (data && data.message) ? data.message : `HTTP ${res.status}`;
-            if (editor) editor.setModel(monaco.editor.createModel(`// ${msg}`, 'plaintext'));
-            return;
-        }
-        let content = '';
-        if (data.content != null) {
-            try {
-                content = base64ToUtf8(data.content);
-            } catch (_) {
-                content = atob(data.content.replace(/\n/g, '')); // fallback Latin-1
-            }
-        } else if (data.download_url) {
-            const raw = await fetch(data.download_url, { headers: getHeaders() });
-            if (raw.ok) content = await raw.text();
-            else content = '// File too large or binary. Use download_url.';
-        } else {
-            content = '// Binary or file too large to display.';
-        }
-        const ext = (file.name.split('.').pop() || '').toLowerCase();
-        const lang = LANG_MAP[ext] || 'plaintext';
-        if (editor) editor.setModel(monaco.editor.createModel(content, lang));
-        var preWrap = document.getElementById('md-pre-wrap');
-        var preView = document.getElementById('md-pre-view');
-        var previewHtml = document.getElementById('md-pre-view-html');
-        if (preWrap && preView) {
-            if (ext === 'md' || ext === 'markdown') {
-                preView.textContent = content;
-                if (previewHtml) {
-                    try {
-                        var html = (typeof marked !== 'undefined') ? (marked.parse ? marked.parse(content) : (typeof marked === 'function' ? marked(content) : '')) : '';
-                        html = (html || '').replace(/<\/?(script|iframe)[^>]*>/gi, '');
-                        previewHtml.innerHTML = html || '<em>No content</em>';
-                    } catch (_) {
-                        previewHtml.textContent = content;
-                    }
-                }
-                document.getElementById('md-tab-preview').classList.add('active');
-                document.getElementById('md-tab-raw').classList.remove('active');
-                document.getElementById('md-panel-preview').classList.add('active');
-                document.getElementById('md-panel-raw').classList.remove('active');
-                preWrap.classList.add('visible');
-                preWrap.setAttribute('aria-hidden', 'false');
-            } else {
-                preWrap.classList.remove('visible');
-                preView.textContent = '';
-                if (previewHtml) previewHtml.innerHTML = '';
-                preWrap.setAttribute('aria-hidden', 'true');
-            }
-        }
-    } catch (e) {
-        const msg = e.message || 'Failed to load';
-        notifyToast('critical', 'Podgląd pliku', msg, 6500);
-        if (editor) editor.setModel(monaco.editor.createModel(`// Error: ${msg}`, 'plaintext'));
-        var preWrap = document.getElementById('md-pre-wrap');
-        if (preWrap) { preWrap.classList.remove('visible'); preWrap.setAttribute('aria-hidden', 'true'); }
+  currentOpenFilePath = file.path;
+  setCdnUrl(file.path);
+  const tree = document.getElementById("file-tree");
+  if (!tree) return;
+  tree
+    .querySelectorAll(".explorer-item")
+    .forEach((i) => i.classList.remove("active"));
+  const safePath = (file.path || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"');
+  const activeEl = tree.querySelector(
+    `.explorer-item[data-path="${safePath}"]`,
+  );
+  if (activeEl) activeEl.classList.add("active");
+
+  try {
+    const res = await fetch(file.url, { headers: getHeaders() });
+    const data = await res.json();
+    if (!res.ok) {
+      const msg = data && data.message ? data.message : `HTTP ${res.status}`;
+      if (editor)
+        editor.setModel(monaco.editor.createModel(`// ${msg}`, "plaintext"));
+      return;
     }
+    let content = "";
+    if (data.content != null) {
+      try {
+        content = base64ToUtf8(data.content);
+      } catch (_) {
+        content = atob(data.content.replace(/\n/g, ""));
+      }
+    } else if (data.download_url) {
+      const raw = await fetch(data.download_url, { headers: getHeaders() });
+      if (raw.ok) content = await raw.text();
+      else content = "// File too large or binary. Use download_url.";
+    } else {
+      content = "// Binary or file too large to display.";
+    }
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    const lang = LANG_MAP[ext] || "plaintext";
+    if (editor) editor.setModel(monaco.editor.createModel(content, lang));
+
+    var preWrap = document.getElementById("md-pre-wrap");
+    var preView = document.getElementById("md-pre-view");
+    var previewHtml = document.getElementById("md-pre-view-html");
+    if (preWrap && preView) {
+      if (ext === "md" || ext === "markdown") {
+        preView.textContent = content;
+        if (previewHtml) {
+          try {
+            var html =
+              typeof marked !== "undefined"
+                ? marked.parse
+                  ? marked.parse(content)
+                  : typeof marked === "function"
+                    ? marked(content)
+                    : ""
+                : "";
+            html = (html || "").replace(/<\/?(script|iframe)[^>]*>/gi, "");
+            previewHtml.innerHTML = html || "<em>No content</em>";
+          } catch (_) {
+            previewHtml.textContent = content;
+          }
+        }
+        const tabPrev = document.getElementById("md-tab-preview");
+        const tabRaw = document.getElementById("md-tab-raw");
+        const panPrev = document.getElementById("md-panel-preview");
+        const panRaw = document.getElementById("md-panel-raw");
+        if (tabPrev) tabPrev.classList.add("active");
+        if (tabRaw) tabRaw.classList.remove("active");
+        if (panPrev) panPrev.classList.add("active");
+        if (panRaw) panRaw.classList.remove("active");
+        preWrap.classList.add("visible");
+        preWrap.setAttribute("aria-hidden", "false");
+      } else {
+        preWrap.classList.remove("visible");
+        preView.textContent = "";
+        if (previewHtml) previewHtml.innerHTML = "";
+        preWrap.setAttribute("aria-hidden", "true");
+      }
+    }
+  } catch (e) {
+    const msg = e.message || "Failed to load";
+    notifyToast("critical", "Podgląd pliku", msg, 6500);
+    if (editor)
+      editor.setModel(
+        monaco.editor.createModel(`// Error: ${msg}`, "plaintext"),
+      );
+    var preWrapErr = document.getElementById("md-pre-wrap");
+    if (preWrapErr) {
+      preWrapErr.classList.remove("visible");
+      preWrapErr.setAttribute("aria-hidden", "true");
+    }
+  }
 }
 
 function getRepoStatus(repo) {
-    const lastPush = new Date(repo.pushed_at);
-    const isStale = (new Date() - lastPush) / 86400000 > 180;
-    return repo.archived ? 'ARCHIVED' : (isStale ? 'STALE' : 'ACTIVE');
+  const lastPush = new Date(repo.pushed_at);
+  const isStale = (new Date() - lastPush) / 86400000 > 180;
+  return repo.archived ? "ARCHIVED" : isStale ? "STALE" : "ACTIVE";
 }
 
 function getLiveSiteUrl(repo) {
-    if (!repo || !repo.has_pages) return '';
-    return repo.name === `${USERNAME}.github.io` ? `https://${USERNAME}.github.io/` : `https://${USERNAME}.github.io/${repo.name}/`;
+  if (!repo || !repo.has_pages) return "";
+  return repo.name === `${USERNAME}.github.io`
+    ? `https://${USERNAME}.github.io/`
+    : `https://${USERNAME}.github.io/${repo.name}/`;
 }
 
 function updateLiveModeLayout() {
-    const stage = document.getElementById('repo-main-stage');
-    const panel = document.getElementById('repo-live-panel');
-    if (!stage || !panel) return;
-    if (repoFilter === 'live') {
-        stage.classList.add('live-active');
-        panel.removeAttribute('hidden');
-        panel.setAttribute('aria-hidden', 'false');
-    } else {
-        stage.classList.remove('live-active');
-        panel.setAttribute('hidden', '');
-        panel.setAttribute('aria-hidden', 'true');
-    }
-    syncRepoListClasses();
+  const stage = document.getElementById("repo-main-stage");
+  const panel = document.getElementById("repo-live-panel");
+  if (!stage || !panel) return;
+  if (repoFilter === "live") {
+    stage.classList.add("live-active");
+    panel.removeAttribute("hidden");
+    panel.setAttribute("aria-hidden", "false");
+  } else {
+    stage.classList.remove("live-active");
+    panel.setAttribute("hidden", "");
+    panel.setAttribute("aria-hidden", "true");
+  }
+  syncRepoListClasses();
 }
 
 function clearLivePreview() {
-    const iframe = document.getElementById('repo-live-iframe');
-    const empty = document.getElementById('repo-live-empty');
-    const urlInput = document.getElementById('repo-live-url');
-    const openLink = document.getElementById('repo-live-open');
-    if (iframe) iframe.removeAttribute('src');
-    if (empty) empty.classList.remove('is-hidden');
-    if (urlInput) urlInput.value = '';
-    if (openLink) openLink.setAttribute('href', '#');
-    document.querySelectorAll('#repo-list .agenda-row.live-selected').forEach(r => r.classList.remove('live-selected'));
+  const iframe = document.getElementById("repo-live-iframe");
+  const empty = document.getElementById("repo-live-empty");
+  const urlInput = document.getElementById("repo-live-url");
+  const openLink = document.getElementById("repo-live-open");
+  if (iframe) iframe.removeAttribute("src");
+  if (empty) empty.classList.remove("is-hidden");
+  if (urlInput) urlInput.value = "";
+  if (openLink) openLink.setAttribute("href", "#");
+  document
+    .querySelectorAll("#repo-list .agenda-row.live-selected")
+    .forEach((r) => r.classList.remove("live-selected"));
 }
 
 function loadLivePreview(url) {
-    if (!url) return;
-    const iframe = document.getElementById('repo-live-iframe');
-    const empty = document.getElementById('repo-live-empty');
-    const urlInput = document.getElementById('repo-live-url');
-    const openLink = document.getElementById('repo-live-open');
-    if (!iframe) return;
-    iframe.src = url;
-    if (empty) empty.classList.add('is-hidden');
-    if (urlInput) urlInput.value = url;
-    if (openLink) openLink.href = url;
-    document.querySelectorAll('#repo-list .agenda-row').forEach(r => {
-        r.classList.toggle('live-selected', r.getAttribute('data-live-url') === url);
-    });
+  if (!url) return;
+  const iframe = document.getElementById("repo-live-iframe");
+  const empty = document.getElementById("repo-live-empty");
+  const urlInput = document.getElementById("repo-live-url");
+  const openLink = document.getElementById("repo-live-open");
+  if (!iframe) return;
+  iframe.src = url;
+  if (empty) empty.classList.add("is-hidden");
+  if (urlInput) urlInput.value = url;
+  if (openLink) openLink.href = url;
+  document.querySelectorAll("#repo-list .agenda-row").forEach((r) => {
+    r.classList.toggle(
+      "live-selected",
+      r.getAttribute("data-live-url") === url,
+    );
+  });
 }
 
 function renderRepoList() {
-    if (repoFilter !== 'live') clearLivePreview();
+  if (repoFilter !== "live") clearLivePreview();
 
-    const filtered = repoFilter === 'all' ? allRepos
-        : repoFilter === 'active' ? allRepos.filter(r => getRepoStatus(r) === 'ACTIVE')
-            : allRepos.filter(r => r.has_pages);
-    const list = document.getElementById('repo-list');
-    const fragment = document.createDocumentFragment();
-    for (let idx = 0; idx < filtered.length; idx++) {
-        const repo = filtered[idx];
-        const lastPush = new Date(repo.pushed_at);
-        const status = getRepoStatus(repo);
-        const ioUrl = getLiveSiteUrl(repo);
-        const row = document.createElement('div');
-        row.className = 'agenda-row';
-        if (ioUrl) row.setAttribute('data-live-url', ioUrl);
-        row.innerHTML = `
-                    <div class="index-col">${String(idx + 1).padStart(2, '0')}</div>
-                    <div class="info-col">
-                        <h3>${repo.name}</h3>
-                        <p>${repo.description || "NO_PROTOCOL_DESCRIPTION"}</p>
-                        <div class="meta-tags">
-                            <span class="badge">${repo.language || "N/A"}</span>
-                            <span class="status-badge ${status.toLowerCase()}">${status}</span>
-                            <span class="badge">PUSH: ${lastPush.toLocaleDateString()}</span>
-                        </div>
-                    </div>
-                    <div class="stat-col">
-                        <span>★ <b>${repo.stargazers_count}</b></span>
-                        <span>⇅ <b>${repo.forks_count}</b></span>
-                    </div>
-                    <div class="action-col">
-                        <a href="${repo.html_url}" target="_blank" class="btn-cmd"><i class="fab fa-github btn-icon" aria-hidden="true"></i> GITHUB</a>
-                        <button class="btn code" onclick="openBrowser('${repo.name}')"><i class="fas fa-folder-open btn-icon" aria-hidden="true"></i>CODE</button>
-                        ${repo.has_pages ? `<a href="${ioUrl}" target="_blank" class="btn btn-io"><i class="fas fa-globe btn-icon" aria-hidden="true"></i> LIVE</a>` : ''}
-                    </div>
-                `;
-        fragment.appendChild(row);
-    }
-    list.innerHTML = '';
-    list.appendChild(fragment);
-    updateLiveModeLayout();
-    if (repoFilter === 'live') {
-        const first = list.querySelector('.agenda-row[data-live-url]');
-        const u = first && first.getAttribute('data-live-url');
-        if (u) loadLivePreview(u);
-        else clearLivePreview();
-    }
+  const filtered =
+    repoFilter === "all"
+      ? allRepos
+      : repoFilter === "active"
+        ? allRepos.filter((r) => getRepoStatus(r) === "ACTIVE")
+        : allRepos.filter((r) => r.has_pages);
+  const list = document.getElementById("repo-list");
+  if (!list) return;
+  const fragment = document.createDocumentFragment();
+
+  for (let idx = 0; idx < filtered.length; idx++) {
+    const repo = filtered[idx];
+    const lastPush = new Date(repo.pushed_at);
+    const updateDate = new Date(repo.updated_at).toLocaleDateString();
+    const status = getRepoStatus(repo);
+    const ioUrl = getLiveSiteUrl(repo);
+    const row = document.createElement("div");
+    row.className = "agenda-row";
+    if (ioUrl) row.setAttribute("data-live-url", ioUrl);
+    row.innerHTML = `
+        <div class="index-col">${String(idx + 1).padStart(2, "0")}</div>
+        <div class="info-col">
+            <h3>${repo.name}</h3>
+            <p>${repo.description || "NO_PROTOCOL_DESCRIPTION"}</p>
+            <div class="meta-tags">
+                <span class="badge">${repo.language || "N/A"}</span>
+                <span class="status-badge ${status.toLowerCase()}">${status}</span>
+                <span class="badge">PUSH: ${lastPush.toLocaleDateString()}</span>
+            </div>
+        </div>
+        <div class="stat-col">
+            <span>★ <b>${repo.stargazers_count}</b></span>
+            <span>⇅ <b>${repo.forks_count}</b></span>
+            <span class="stat-date"><i class="far fa-clock"></i> <b>${updateDate}</b></span>
+        </div>
+        <div class="action-col">
+            <a href="${repo.html_url}" target="_blank" class="btn-cmd"><i class="fab fa-github btn-icon" aria-hidden="true"></i> GITHUB</a>
+            <button class="btn code" onclick="openBrowser('${repo.name}')"><i class="fas fa-folder-open btn-icon" aria-hidden="true"></i>CODE</button>
+            ${repo.has_pages ? `<a href="${ioUrl}" target="_blank" class="btn btn-io"><i class="fas fa-globe btn-icon" aria-hidden="true"></i> LIVE</a>` : ""}
+        </div>
+    `;
+    fragment.appendChild(row);
+  }
+  list.innerHTML = "";
+  list.appendChild(fragment);
+  updateLiveModeLayout();
+  if (repoFilter === "live") {
+    const first = list.querySelector(".agenda-row[data-live-url]");
+    const u = first && first.getAttribute("data-live-url");
+    if (u) loadLivePreview(u);
+    else clearLivePreview();
+  }
 }
 
-/** @returns {Promise<boolean>} true gdy lista została wczytana (w tym częściowo po błędzie na kolejnej stronie) */
 async function fetchRepos() {
-    const rateEl = document.getElementById('rate-limit');
-    try {
-        let repos = [];
-        let page = 1;
-        const perPage = 100;
-        for (; ;) {
-            const res = await fetch(`https://api.github.com/users/${USERNAME}/repos?sort=pushed&per_page=${perPage}&page=${page}`, { headers: getHeaders() });
-            if (rateEl) {
-                rateEl.textContent = `${res.headers.get('x-ratelimit-remaining') || '-'}/${res.headers.get('x-ratelimit-limit') || '-'}`;
-            }
-            const chunk = await res.json();
-            if (!res.ok) {
-                const msg = (chunk && chunk.message) ? chunk.message : `HTTP ${res.status}`;
-                console.error('fetchRepos:', msg);
-                notifyToast('critical', 'GitHub API', msg, 8000);
-                if (repos.length === 0) return false;
-                break;
-            }
-            if (!Array.isArray(chunk) || chunk.length === 0) break;
-            repos = repos.concat(chunk);
-            if (chunk.length < perPage) break;
-            page++;
-            if (page > 10) break;
-        }
-        allRepos = repos;
-        let active = 0, pages = 0;
-        repos.forEach(r => {
-            if (getRepoStatus(r) === 'ACTIVE') active++;
-            if (r.has_pages) pages++;
-        });
-        document.getElementById('stat-total').textContent = repos.length;
-        document.getElementById('stat-active').textContent = active;
-        document.getElementById('stat-pages').textContent = pages;
-        const statLive = document.getElementById('stat-live');
-        if (statLive) statLive.textContent = pages;
-        renderRepoList();
-        return true;
-    } catch (e) {
-        console.error(e);
-        if (rateEl) rateEl.textContent = rateEl.textContent || 'ERR';
-        notifyToast('critical', 'GitHub API', e.message || String(e), 8000);
-        return false;
+  const rateEl = document.getElementById("rate-limit");
+  try {
+    let repos = [];
+    let page = 1;
+    const perPage = 100;
+    for (;;) {
+      const res = await fetch(
+        `https://api.github.com/users/${USERNAME}/repos?sort=pushed&per_page=${perPage}&page=${page}`,
+        { headers: getHeaders() },
+      );
+      if (rateEl) {
+        rateEl.textContent = `${res.headers.get("x-ratelimit-remaining") || "-"}/${res.headers.get("x-ratelimit-limit") || "-"}`;
+      }
+      const chunk = await res.json();
+      if (!res.ok) {
+        const msg =
+          chunk && chunk.message ? chunk.message : `HTTP ${res.status}`;
+        console.error("fetchRepos:", msg);
+        notifyToast("critical", "GitHub API", msg, 8000);
+        if (repos.length === 0) return false;
+        break;
+      }
+      if (!Array.isArray(chunk) || chunk.length === 0) break;
+      repos = repos.concat(chunk);
+      if (chunk.length < perPage) break;
+      page++;
+      if (page > 10) break;
     }
+    allRepos = repos;
+    let active = 0,
+      pages = 0;
+    repos.forEach((r) => {
+      if (getRepoStatus(r) === "ACTIVE") active++;
+      if (r.has_pages) pages++;
+    });
+    const statTotal = document.getElementById("stat-total");
+    const statActive = document.getElementById("stat-active");
+    const statPages = document.getElementById("stat-pages");
+    const statLive = document.getElementById("stat-live");
+    if (statTotal) statTotal.textContent = repos.length;
+    if (statActive) statActive.textContent = active;
+    if (statPages) statPages.textContent = pages;
+    if (statLive) statLive.textContent = pages;
+    renderRepoList();
+    return true;
+  } catch (e) {
+    console.error(e);
+    if (rateEl) rateEl.textContent = rateEl.textContent || "ERR";
+    notifyToast("critical", "GitHub API", e.message || String(e), 8000);
+    return false;
+  }
 }
 
-document.getElementById('repo-refresh-btn').addEventListener('click', async function () {
-    const btn = document.getElementById('repo-refresh-btn');
-    if (!btn || btn.disabled) return;
-    const icon = btn.querySelector('.btn-icon') || btn.querySelector('i');
-    btn.disabled = true;
-    btn.setAttribute('aria-busy', 'true');
-    const prevIconClass = icon ? icon.className : '';
-    if (icon) icon.className = 'fas fa-spinner fa-spin btn-icon';
+const repoRefreshBtn = document.getElementById("repo-refresh-btn");
+if (repoRefreshBtn) {
+  repoRefreshBtn.addEventListener("click", async function () {
+    if (repoRefreshBtn.disabled) return;
+    const icon =
+      repoRefreshBtn.querySelector(".btn-icon") ||
+      repoRefreshBtn.querySelector("i");
+    repoRefreshBtn.disabled = true;
+    repoRefreshBtn.setAttribute("aria-busy", "true");
+    const prevIconClass = icon ? icon.className : "";
+    if (icon) icon.className = "fas fa-spinner fa-spin btn-icon";
     try {
-        const ok = await fetchRepos();
-        if (ok) notifyToast('success', 'Repozytoria', `Lista zaktualizowana (${allRepos.length}).`, 3200);
+      const ok = await fetchRepos();
+      if (ok)
+        notifyToast(
+          "success",
+          "Repozytoria",
+          `Lista zaktualizowana (${allRepos.length}).`,
+          3200,
+        );
     } finally {
-        btn.disabled = false;
-        btn.removeAttribute('aria-busy');
-        if (icon) icon.className = prevIconClass;
+      repoRefreshBtn.disabled = false;
+      repoRefreshBtn.removeAttribute("aria-busy");
+      if (icon) icon.className = prevIconClass;
     }
+  });
+}
+
+document.querySelectorAll(".dashboard-grid .card--filter").forEach((card) => {
+  card.addEventListener("click", () => {
+    repoFilter = card.dataset.filter;
+    document
+      .querySelectorAll(".dashboard-grid .card--filter")
+      .forEach((c) => c.classList.remove("card--filter-active"));
+    card.classList.add("card--filter-active");
+    renderRepoList();
+  });
+  card.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      card.click();
+    }
+  });
 });
 
-document.querySelectorAll('.dashboard-grid .card--filter').forEach(card => {
-    card.addEventListener('click', () => {
-        repoFilter = card.dataset.filter;
-        document.querySelectorAll('.dashboard-grid .card--filter').forEach(c => c.classList.remove('card--filter-active'));
-        card.classList.add('card--filter-active');
-        renderRepoList();
-    });
-    card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.click(); } });
-});
-
-document.getElementById('repo-list').addEventListener('click', function (e) {
-    if (repoFilter !== 'live') return;
-    if (e.target.closest('a, button')) return;
-    const row = e.target.closest('.agenda-row[data-live-url]');
+const repoListEl = document.getElementById("repo-list");
+if (repoListEl) {
+  repoListEl.addEventListener("click", function (e) {
+    if (repoFilter !== "live") return;
+    if (e.target.closest("a, button")) return;
+    const row = e.target.closest(".agenda-row[data-live-url]");
     if (!row) return;
-    const url = row.getAttribute('data-live-url');
+    const url = row.getAttribute("data-live-url");
     if (url) loadLivePreview(url);
-});
+  });
+}
 
-const repoLiveReload = document.getElementById('repo-live-reload');
+const repoLiveReload = document.getElementById("repo-live-reload");
 if (repoLiveReload) {
-    repoLiveReload.addEventListener('click', function () {
-        const iframe = document.getElementById('repo-live-iframe');
-        const url = document.getElementById('repo-live-url') && document.getElementById('repo-live-url').value;
-        if (!iframe || !url) return;
-        iframe.removeAttribute('src');
-        requestAnimationFrame(function () { iframe.src = url; });
+  repoLiveReload.addEventListener("click", function () {
+    const iframe = document.getElementById("repo-live-iframe");
+    const urlInput = document.getElementById("repo-live-url");
+    const url = urlInput ? urlInput.value : "";
+    if (!iframe || !url) return;
+    iframe.removeAttribute("src");
+    requestAnimationFrame(function () {
+      iframe.src = url;
     });
+  });
 }
 
 function updateFooterYear() {
-    const el = document.getElementById('footer-year');
-    if (!el) return;
-    const y = new Date().getFullYear();
-    el.textContent = String(y);
-    if (el.tagName === 'TIME') el.setAttribute('datetime', String(y));
+  const el = document.getElementById("footer-year");
+  if (!el) return;
+  const y = new Date().getFullYear();
+  el.textContent = String(y);
+  if (el.tagName === "TIME") el.setAttribute("datetime", String(y));
 }
 
-const sessionIdEl = document.getElementById('session-id');
-if (sessionIdEl) sessionIdEl.textContent = Math.random().toString(16).slice(2, 10).toUpperCase();
+const sessionIdEl = document.getElementById("session-id");
+if (sessionIdEl)
+  sessionIdEl.textContent = Math.random()
+    .toString(16)
+    .slice(2, 10)
+    .toUpperCase();
+
 updateFooterYear();
-document.addEventListener('DOMContentLoaded', updateFooterYear);
+document.addEventListener("DOMContentLoaded", updateFooterYear);
 loadStoredAuth();
 applyView();
 
-const LIVE_TOOLBAR_COLLAPSED_KEY = 'git_scanner_live_toolbar_collapsed';
+const LIVE_TOOLBAR_COLLAPSED_KEY = "git_scanner_live_toolbar_collapsed";
 
 function initLiveToolbarToggle() {
-    const panel = document.getElementById('repo-live-panel');
-    const btn = document.getElementById('repo-live-toolbar-toggle');
-    if (!panel || !btn) return;
+  const panel = document.getElementById("repo-live-panel");
+  const btn = document.getElementById("repo-live-toolbar-toggle");
+  if (!panel || !btn) return;
 
-    const applyCollapsed = (collapsed) => {
-        panel.classList.toggle('repo-live-panel--toolbar-collapsed', collapsed);
-        btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-        try {
-            localStorage.setItem(LIVE_TOOLBAR_COLLAPSED_KEY, collapsed ? '1' : '0');
-        } catch (e) { /* ignore */ }
-    };
-
-    let startCollapsed = false;
+  const applyCollapsed = (collapsed) => {
+    panel.classList.toggle("repo-live-panel--toolbar-collapsed", collapsed);
+    btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
     try {
-        startCollapsed = localStorage.getItem(LIVE_TOOLBAR_COLLAPSED_KEY) === '1';
-    } catch (e) { /* ignore */ }
-    applyCollapsed(startCollapsed);
+      localStorage.setItem(LIVE_TOOLBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
+    } catch (e) {}
+  };
 
-    btn.addEventListener('click', function () {
-        applyCollapsed(!panel.classList.contains('repo-live-panel--toolbar-collapsed'));
-    });
+  let startCollapsed = false;
+  try {
+    startCollapsed = localStorage.getItem(LIVE_TOOLBAR_COLLAPSED_KEY) === "1";
+  } catch (e) {}
+  applyCollapsed(startCollapsed);
+
+  btn.addEventListener("click", function () {
+    applyCollapsed(
+      !panel.classList.contains("repo-live-panel--toolbar-collapsed"),
+    );
+  });
 }
 
 initLiveToolbarToggle();
 
 window.onload = function () {
-    startBoot();
+  startBoot();
 };
 
 function initBtnRipple() {
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-    document.body.addEventListener('pointerdown', function (e) {
-        if (reduceMotion.matches) return;
-        const btn = e.target.closest('.btn, .btn-cmd');
-        if (!btn || btn.disabled || btn.getAttribute('aria-disabled') === 'true') return;
-        const r = btn.getBoundingClientRect();
-        const x = e.clientX - r.left;
-        const y = e.clientY - r.top;
-        const cover = Math.hypot(Math.max(x, r.width - x), Math.max(y, r.height - y)) * 2;
-        const ripple = document.createElement('span');
-        ripple.className = 'ripple';
-        ripple.style.width = ripple.style.height = cover + 'px';
-        ripple.style.left = x - cover / 2 + 'px';
-        ripple.style.top = y - cover / 2 + 'px';
-        btn.appendChild(ripple);
-        ripple.addEventListener('animationend', function () {
-            ripple.remove();
-        });
+  document.body.addEventListener("pointerdown", function (e) {
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    if (prefersReducedMotion) return;
+
+    const btn = e.target.closest(".btn, .btn-cmd");
+    if (!btn || btn.disabled || btn.getAttribute("aria-disabled") === "true")
+      return;
+
+    const r = btn.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    const y = e.clientY - r.top;
+    const size = Math.max(x, r.width - x, y, r.height - y) * 2;
+
+    const ripple = document.createElement("span");
+    ripple.className = "ripple";
+    ripple.style.width = size + "px";
+    ripple.style.height = size + "px";
+    ripple.style.left = x - size / 2 + "px";
+    ripple.style.top = y - size / 2 + "px";
+
+    btn.appendChild(ripple);
+    ripple.addEventListener("animationend", function () {
+      ripple.remove();
     });
+  });
 }
 
-// Add these to your existing script section
 document.addEventListener("DOMContentLoaded", function () {
-    initBtnRipple();
+  initBtnRipple();
 
-    // Remove draggable attribute from all elements
-    document.querySelectorAll('[draggable="true"]').forEach((el) => {
-        el.removeAttribute("draggable");
-    });
+  document.querySelectorAll('[draggable="true"]').forEach((el) => {
+    el.removeAttribute("draggable");
+  });
 
-    // Prevent dragstart event
-    document.addEventListener("dragstart", function (e) {
-        e.preventDefault();
-        return false;
-    });
+  document.addEventListener("dragstart", function (e) {
+    e.preventDefault();
+    return false;
+  });
 
-    // Prevent drop event
-    document.addEventListener("drop", function (e) {
-        e.preventDefault();
-        return false;
-    });
+  document.addEventListener("drop", function (e) {
+    e.preventDefault();
+    return false;
+  });
 
-    // Prevent dragover event
-    document.addEventListener("dragover", function (e) {
-        e.preventDefault();
-        return false;
-    });
+  document.addEventListener("dragover", function (e) {
+    e.preventDefault();
+    return false;
+  });
 });
