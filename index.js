@@ -1,7 +1,11 @@
 const USERNAME = "s-pro-v";
 const AUTH_STORAGE_KEY = "git_scanner_auth";
 const VIEW_STORAGE_KEY = "git_scanner_view";
-const OBFUSCATE_KEY = "S-PRO-V_VFS_2027";
+
+// Ukryty klucz "w5g" (126-7=119 'w', 60-7=53 '5', 110-7=103 'g')
+const OBFUSCATE_KEY = (() =>
+  [126, 60, 110].map((c) => String.fromCharCode(c - 7)).join(""))();
+
 const BOOT_PASSWORD = "admin";
 const UNLOCK_STORAGE_KEY = "git_scanner_unlocked";
 
@@ -85,7 +89,7 @@ function saveAuth(token) {
 const getHeaders = () => {
   const h = { Accept: "application/vnd.github.v3+json" };
   if (githubToken) {
-    h["Authorization"] = `Bearer ${githubToken}`;
+    h["Authorization"] = `token ${githubToken.trim()}`;
   }
   return h;
 };
@@ -104,7 +108,7 @@ function getMonacoSettings() {
 function saveMonacoSettings(obj) {
   try {
     localStorage.setItem(MONACO_SETTINGS_KEY, JSON.stringify(obj));
-  } catch (e) {}
+  } catch (e) { }
 }
 
 window.getMonacoSettings = getMonacoSettings;
@@ -565,10 +569,7 @@ const applyTokenBtn = document.getElementById("apply-token");
 if (applyTokenBtn) {
   applyTokenBtn.addEventListener("click", async () => {
     const pwdValue = ghTokenInput ? ghTokenInput.value.trim() : "";
-    const KEY =
-      String.fromCharCode(119) +
-      String.fromCharCode(53) +
-      String.fromCharCode(103);
+    const KEY = OBFUSCATE_KEY;
 
     if (pwdValue !== KEY) {
       notifyToast("warning", "AUTH", "Nieprawidłowe hasło dostępu.", 3500);
@@ -584,24 +585,53 @@ if (applyTokenBtn) {
       '<i class="fas fa-spinner fa-spin btn-icon" aria-hidden="true"></i> SYNC...';
 
     try {
-      const res = await fetch(
-        "https://raw.githubusercontent.com/s-pro-v/json-lista/refs/heads/main/dev/auth.json",
-        {
-          cache: "no-store",
-        },
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const authUrl = `https://raw.githubusercontent.com/s-pro-v/json-lista/refs/heads/main/dev/auth.json?t=${Date.now()}`;
+      const res = await fetch(authUrl, { cache: "no-store" });
 
-      const data = await res.json();
-      const cipherText = Array.isArray(data)
-        ? data[0]?.sys_state
-        : data?.sys_state;
-
-      if (!cipherText) {
-        throw new Error("Brak pola sys_state w pliku auth.json");
+      if (!res.ok) {
+        if (res.status === 404) {
+          throw new Error("Plik auth.json nie istnieje (Błąd 404). Sprawdź, czy repozytorium jest publiczne!");
+        }
+        throw new Error(`HTTP ${res.status}`);
       }
 
-      const binaryString = atob(cipherText.trim());
+      const rawText = await res.text();
+      let cipherText = "";
+
+      try {
+        const parsed = JSON.parse(rawText);
+
+        // Agresywne wyciąganie dowolnej wartości z JSON
+        const findTargetValue = (obj) => {
+          if (typeof obj === "string") return obj;
+          if (Array.isArray(obj)) return findTargetValue(obj[0]);
+          if (obj && typeof obj === "object") {
+            return obj.sys_state || obj.token || obj.key || obj.state || Object.values(obj)[0];
+          }
+          return "";
+        };
+
+        cipherText = findTargetValue(parsed);
+      } catch (jsonErr) {
+        // Fallback: jeśli plik nie jest prawidłowym JSON-em, użyj całego tekstu
+        cipherText = rawText;
+      }
+
+      // Bezpieczne czyszczenie ze wszystkich spacji, enterów i cudzysłowów
+      cipherText = String(cipherText).replace(/["'\s\n\r]/g, "");
+
+      if (!cipherText || cipherText.toLowerCase().includes("notfound")) {
+        console.error("[DEBUG] Pobrano błędny plik:", rawText);
+        throw new Error("Pobrane dane są puste lub uszkodzone. Sprawdź format pliku auth.json");
+      }
+
+      let binaryString = "";
+      try {
+        binaryString = atob(cipherText);
+      } catch (b64Err) {
+        throw new Error("Wartość w pliku auth.json nie jest prawidłowym formatem Base64.");
+      }
+
       let decodedToken = "";
       for (let i = 0; i < binaryString.length; i++) {
         decodedToken += String.fromCharCode(
@@ -629,7 +659,8 @@ if (applyTokenBtn) {
       );
       await fetchRepos();
     } catch (err) {
-      notifyToast("critical", "AUTH", `Błąd: ${err.message}`, 5000);
+      console.error(err);
+      notifyToast("critical", "AUTH", `Błąd: ${err.message}`, 6500);
     } finally {
       applyTokenBtn.disabled = false;
       applyTokenBtn.innerHTML =
@@ -1096,7 +1127,7 @@ function renderRepoList() {
         <div class="index-col">${String(idx + 1).padStart(2, "0")}</div>
         <div class="info-col">
             <h3>${repo.name}</h3>
-            <p>${repo.description || "NO_PROTOCOL_DESCRIPTION"}</p>
+            <p>${repo.description || repo.language}</p>
             <div class="meta-tags">
                 <span class="badge">${repo.language || "N/A"}</span>
                 <span class="status-badge ${status.toLowerCase()}">${status}</span>
@@ -1133,7 +1164,7 @@ async function fetchRepos() {
     let repos = [];
     let page = 1;
     const perPage = 100;
-    for (;;) {
+    for (; ;) {
       const res = await fetch(
         `https://api.github.com/users/${USERNAME}/repos?sort=pushed&per_page=${perPage}&page=${page}`,
         { headers: getHeaders() },
@@ -1284,13 +1315,13 @@ function initLiveToolbarToggle() {
     btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
     try {
       localStorage.setItem(LIVE_TOOLBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
-    } catch (e) {}
+    } catch (e) { }
   };
 
   let startCollapsed = false;
   try {
     startCollapsed = localStorage.getItem(LIVE_TOOLBAR_COLLAPSED_KEY) === "1";
-  } catch (e) {}
+  } catch (e) { }
   applyCollapsed(startCollapsed);
 
   btn.addEventListener("click", function () {

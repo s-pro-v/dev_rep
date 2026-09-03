@@ -7,33 +7,30 @@
 
   const AUTH_REMOTE_URL =
     "https://raw.githubusercontent.com/s-pro-v/json-lista/refs/heads/main/dev/auth.json";
-  const OBFUSCATE_KEY =
-    String.fromCharCode(119) +
-    String.fromCharCode(53) +
-    String.fromCharCode(103);
+  const OBFUSCATE_KEY = (() => [126, 60, 110].map(c => String.fromCharCode(c - 7)).join(""))();
 
   let cachedToken = null;
 
   function base64ToUtf8(b64) {
-    const bin = atob(b64); //[cite: 6, 16]
-    const bytes = new Uint8Array(bin.length); //[cite: 6, 16]
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i) & 0xff; //[cite: 6, 16]
-    return new TextDecoder("utf-8", { fatal: true }).decode(bytes); //[cite: 6, 16]
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i) & 0xff;
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   }
 
   function deobfuscate(str) {
     try {
-      const raw = base64ToUtf8(str); //[cite: 6, 16]
-      let out = ""; //[cite: 6, 16]
+      const raw = base64ToUtf8(str);
+      let out = "";
       for (let i = 0; i < raw.length; i++) {
         out += String.fromCharCode(
           raw.charCodeAt(i) ^
-            OBFUSCATE_KEY.charCodeAt(i % OBFUSCATE_KEY.length),
-        ); //[cite: 6, 16]
+          OBFUSCATE_KEY.charCodeAt(i % OBFUSCATE_KEY.length),
+        );
       }
-      return out; //[cite: 6, 16]
+      return out;
     } catch (e) {
-      return ""; //[cite: 6, 16]
+      return "";
     }
   }
 
