@@ -97,7 +97,7 @@
     --text-inverse: #000;
     --border-color-hover: #444;
     --hover-bg: #3c3c3c;
-
+    --highlight: var(--highlight-color);
     --highlight-rgb: 243, 108, 0;
     --text-color-rgb: 224, 224, 224;
     --text-muted-rgb: 133, 133, 133;

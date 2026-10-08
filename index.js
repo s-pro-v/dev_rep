@@ -466,6 +466,7 @@ function initMonaco() {
       base.automaticLayout = true;
       base.readOnly = true;
       editor = monaco.editor.create(container, base);
+      window.monacoEditor = editor;
       if (
         typeof window.MonacoEditorSettings !== "undefined" &&
         typeof window.MonacoEditorSettings.setEditors === "function"

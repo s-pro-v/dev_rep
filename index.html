@@ -224,7 +224,7 @@
 
                         </div>
                         <div class="btn-bg">
-                            <button class="btn" type="button" title="Ustawienia edytora"
+                            <button class="btn" id="openSettingsButton" type="button" title="Ustawienia edytora"
                                 onclick="window.MonacoEditorSettings && window.MonacoEditorSettings.showSettings()"><i
                                     class="fas fa-sliders-h btn-icon" aria-hidden="true"></i> SETTINGS</button>
                             <button class="btn btn-copy" id="cdn-copy" title="Kopiuj URL"><i
@@ -263,13 +263,13 @@
                     </div>
                 </div>
             </div>
-            <div id="settings-overlay-wrap">
+            <div id="settingsContainer">
                 <div id="settingsOverlay" class="settings-sidebar-overlay"
                     onclick="window.MonacoEditorSettings && window.MonacoEditorSettings.closeSettings()"></div>
                 <aside id="settingsSidebar" class="settings-sidebar" aria-label="Ustawienia edytora">
                     <div class="settings-sidebar-header">
                         <span class="settings-sidebar-title"><i class="fas fa-sliders-h"></i> Monaco Editor</span>
-                        <button type="button" class="action-btn close-settings"
+                        <button type="button" class="action-btn close-settings" id="closeSettingsButton"
                             onclick="window.MonacoEditorSettings && window.MonacoEditorSettings.closeSettings()"><i
                                 class="fas fa-times"></i></button>
                     </div>
@@ -279,7 +279,7 @@
         </div>
         <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
         <script src="monaco-css.js"></script>
-        <script src="https://cdn.jsdelivr.net/gh/s-pro-v/css_add@refs/heads/main/set.js"></script>
+        <script src="settings.js"></script>
         <footer>
             SESSION: <span class="footer-text" id="session-id">---</span> | LAYOUT_ENGINE: GRID_LIST_AUTO | V2.7 |
             © <time class="footer-text" id="footer-year" datetime="">—</time>
