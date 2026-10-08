@@ -1119,8 +1119,8 @@ body:not(.unlocked) {
 }
 
 .repo-main-stage.live-active .repo-list-container {
-    max-width: 520px;
-    min-width: 240px;
+    max-width: 335px;
+    min-width: 335px;
     min-height: 0;
     align-self: stretch;
     overflow-x: hidden;
@@ -1269,7 +1269,7 @@ body:not(.unlocked) {
     position: fixed;
     top: 2.85rem;
     z-index: 100;
-    width: calc(100% - 37rem);
+    width: calc(100% - 34rem);
     box-sizing: border-box;
 }
 
@@ -1420,6 +1420,8 @@ body:not(.unlocked) {
     height: auto;
     border: 1px solid var(--border-color);
     margin-bottom: 0;
+    min-width: 330px;
+    width: 100%;
 }
 
 .repo-list-container.grid-mode .agenda-row .index-col {

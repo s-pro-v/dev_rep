@@ -351,9 +351,9 @@ async function startBoot() {
 const MONACO_VS = "https://cdn.jsdelivr.net/gh/s-pro-v/maroco@main/min/vs";
 const MONACO_LOADER = MONACO_VS + "/loader.js";
 const MONACO_LOADER_FALLBACK =
-  "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js";
+  "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.0/min/vs/loader.min.js";
 const MONACO_VS_FALLBACK =
-  "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs";
+  "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.0/min/vs";
 let monacoReady = false;
 let monacoInitStarted = false;
 
