@@ -122,7 +122,7 @@ const SETTINGS_CONFIG = [
             {
                 key: 'autoClosingBrackets',
                 label: 'Auto Close Brackets',
-                icon: 'fas fa-brackets-curly',
+                icon: 'fas fa-code',
                 type: 'select',
                 default: 'always',
                 options: [
@@ -201,7 +201,7 @@ const SETTINGS_CONFIG = [
             {
                 key: 'matchBrackets',
                 label: 'Match Brackets',
-                icon: 'fas fa-brackets-curly',
+                icon: 'fas fa-code',
                 type: 'select',
                 default: 'always',
                 options: [
